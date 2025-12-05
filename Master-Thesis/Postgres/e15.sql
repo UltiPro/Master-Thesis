@@ -2,6 +2,9 @@
 -- Łączna długość dróg w hexagonach
 -- =====================================================================
 
+DROP TABLE IF EXISTS mgr_2025.vw_hex_road_lengths;
+
+CREATE TABLE mgr_2025.vw_hex_road_lengths AS
 WITH hex_sample AS (
     SELECT *
     FROM mgr_2025.geo_hex

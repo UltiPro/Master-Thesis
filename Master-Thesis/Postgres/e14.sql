@@ -2,6 +2,9 @@
 -- Policzenie liczby punktów POI w hexagonach.
 -- ============================================================
 
+DROP TABLE IF EXISTS mgr_2025.vw_hex_poi_counts;
+
+CREATE TABLE mgr_2025.vw_hex_poi_counts AS
 WITH hex_sample AS (
     SELECT *
     FROM mgr_2025.geo_hex

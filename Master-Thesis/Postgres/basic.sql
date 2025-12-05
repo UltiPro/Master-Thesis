@@ -224,6 +224,7 @@ SET geom_line_2180 = ST_Transform(geom_line_4326, 2180);
 COPY (
     SELECT
         id,
+        osm_id,
         highway,
         ST_AsText(geom_line_4326)
     FROM mgr_2025.osm_roads
