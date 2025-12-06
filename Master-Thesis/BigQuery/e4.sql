@@ -1,61 +1,126 @@
 CREATE OR REPLACE TABLE `mgr-2025.mgr_2025.feat_poi_border` AS
 WITH
-
--- Jednostki administracyjne: BigQuery GEOGRAPHY (4326)
+-- ============================
+-- Dane źródłowe
+-- ============================
 gmina AS (
-    SELECT 
-        id,
-        geom_4326 AS geom,
-        ST_EXTERIORRING(geom_4326) AS boundary
+    SELECT id AS gmina_id, geom_4326 AS geom
     FROM `mgr-2025.mgr_2025.geo_polska`
     WHERE typ = 'gmina'
 ),
-
 powiat AS (
-    SELECT 
-        id,
-        geom_4326 AS geom,
-        ST_EXTERIORRING(geom_4326) AS boundary
+    SELECT id AS powiat_id, geom_4326 AS geom
     FROM `mgr-2025.mgr_2025.geo_polska`
     WHERE typ = 'powiat'
 ),
-
 woj AS (
-    SELECT 
-        id,
-        geom_4326 AS geom,
-        ST_EXTERIORRING(geom_4326) AS boundary
+    SELECT id AS woj_id, geom_4326 AS geom
     FROM `mgr-2025.mgr_2025.geo_polska`
     WHERE typ = 'województwo'
 ),
-
 kraj AS (
-    SELECT 
-        id,
-        geom_4326 AS geom,
-        ST_EXTERIORRING(geom_4326) AS boundary
+    SELECT id AS kraj_id, geom_4326 AS geom
     FROM `mgr-2025.mgr_2025.geo_polska`
     WHERE typ = 'kraj'
 ),
 
--- Limitowana próbka
+-- Pobieramy POI (1000 jak w PostGIS)
 poi_subset AS (
-    SELECT *
+    SELECT 
+        id AS poi_id,
+        geom_point_4326
     FROM `mgr-2025.mgr_2025.dat_poi`
-    ORDER BY id
+    ORDER BY poi_id
     LIMIT 1000
+),
+
+-- ============================
+-- GMINA — wybór właściwego polygona i dystansu
+-- ============================
+gmina_match AS (
+    SELECT
+        p.poi_id,
+        g.gmina_id,
+        ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(g.geom)) AS dist,
+        ROW_NUMBER() OVER (
+            PARTITION BY p.poi_id 
+            ORDER BY ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(g.geom))
+        ) AS rn
+    FROM poi_subset p
+    JOIN gmina g
+      ON ST_CONTAINS(g.geom, p.geom_point_4326)
+),
+gmina_best AS (
+    SELECT poi_id, gmina_id, dist AS dist_gmina
+    FROM gmina_match WHERE rn = 1
+),
+
+-- ============================
+-- POWIAT
+-- ============================
+powiat_match AS (
+    SELECT
+        p.poi_id,
+        pw.powiat_id,
+        ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(pw.geom)) AS dist,
+        ROW_NUMBER() OVER (
+            PARTITION BY p.poi_id 
+            ORDER BY ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(pw.geom))
+        ) AS rn
+    FROM poi_subset p
+    JOIN powiat pw
+      ON ST_CONTAINS(pw.geom, p.geom_point_4326)
+),
+powiat_best AS (
+    SELECT poi_id, powiat_id, dist AS dist_powiat
+    FROM powiat_match WHERE rn = 1
+),
+
+-- ============================
+-- WOJEWÓDZTWO
+-- ============================
+woj_match AS (
+    SELECT
+        p.poi_id,
+        w.woj_id,
+        ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(w.geom)) AS dist,
+        ROW_NUMBER() OVER (
+            PARTITION BY p.poi_id 
+            ORDER BY ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(w.geom))
+        ) AS rn
+    FROM poi_subset p
+    JOIN woj w
+      ON ST_CONTAINS(w.geom, p.geom_point_4326)
+),
+woj_best AS (
+    SELECT poi_id, woj_id, dist AS dist_woj
+    FROM woj_match WHERE rn = 1
+),
+
+-- ============================
+-- KRAJ — 1 poligon, brak selekcji
+-- ============================
+kraj_best AS (
+    SELECT
+        p.poi_id,
+        k.kraj_id,
+        ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(k.geom)) AS dist_kraj
+    FROM poi_subset p
+    CROSS JOIN kraj k
 )
 
+-- ============================
+-- Wynik końcowy
+-- ============================
 SELECT
-    p.id AS poi_id,
-
-    ST_DISTANCE(p.geom_point_4326, g.boundary)  AS dist_gmina,
-    ST_DISTANCE(p.geom_point_4326, pw.boundary) AS dist_powiat,
-    ST_DISTANCE(p.geom_point_4326, w.boundary)  AS dist_woj,
-    ST_DISTANCE(p.geom_point_4326, k.boundary)  AS dist_kraj
-
+    p.poi_id,
+    g.dist_gmina,
+    pw.dist_powiat,
+    w.dist_woj,
+    k.dist_kraj
 FROM poi_subset p
-LEFT JOIN gmina g   ON ST_CONTAINS(g.geom, p.geom_point_4326)
-LEFT JOIN powiat pw ON ST_CONTAINS(pw.geom, p.geom_point_4326)
-LEFT JOIN woj w     ON ST_CONTAINS(w.geom, p.geom_point_4326)
-CROSS JOIN kraj k;
+LEFT JOIN gmina_best g USING (poi_id)
+LEFT JOIN powiat_best pw USING (poi_id)
+LEFT JOIN woj_best w USING (poi_id)
+LEFT JOIN kraj_best k USING (poi_id)
+ORDER BY poi_id;

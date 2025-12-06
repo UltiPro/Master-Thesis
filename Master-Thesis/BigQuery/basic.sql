@@ -43,10 +43,18 @@ EXPORT DATA OPTIONS (
 SELECT *
 FROM `mgr-2025.mgr_2025.dat_poi`;
 
-CREATE OR REPLACE TABLE `mgr-2025.mgr_2025.dat_poi`
+-- Dodanie klastrowania do tabeli dat_poi na podstawie kolumny category
+CREATE TABLE `mgr-2025.mgr_2025.dat_poi_tmp`
 CLUSTER BY category AS
 SELECT *
 FROM `mgr-2025.mgr_2025.dat_poi`;
+
+-- Usuń starą tabelę
+DROP TABLE `mgr-2025.mgr_2025.dat_poi`;
+
+-- Zmień nazwę tabeli tymczasowej na właściwą
+ALTER TABLE `mgr-2025.mgr_2025.dat_poi_tmp`
+RENAME TO `dat_poi`;
 
 -- geo_polska Table Creation and Data Load
 CREATE OR REPLACE TABLE `mgr-2025.mgr_2025.geo_polska_raw`
@@ -128,10 +136,18 @@ EXPORT DATA OPTIONS (
 SELECT *
 FROM `mgr-2025.mgr_2025.osm_roads`;
 
-CREATE OR REPLACE TABLE `mgr-2025.mgr_2025.osm_roads`
+-- Dodanie klastrowania do tabeli osm_roads na podstawie kolumny highway
+CREATE TABLE `mgr-2025.mgr_2025.osm_roads_tmp`
 CLUSTER BY highway AS
 SELECT *
 FROM `mgr-2025.mgr_2025.osm_roads`;
+
+-- Usuń starą tabelę
+DROP TABLE `mgr-2025.mgr_2025.osm_roads`;
+
+-- Zmień nazwę tabeli tymczasowej na docelową
+ALTER TABLE `mgr-2025.mgr_2025.osm_roads_tmp`
+RENAME TO `osm_roads`;
 
 -- geo_hex Table Creation and Data Load
 CREATE OR REPLACE TABLE `mgr-2025.mgr_2025.geo_hex_raw`
@@ -170,10 +186,5 @@ EXPORT DATA OPTIONS (
   header = true,
   field_delimiter = ','
 ) AS
-SELECT *
-FROM `mgr-2025.mgr_2025.geo_hex`;
-
-CREATE OR REPLACE TABLE `mgr-2025.mgr_2025.geo_hex`
-CLUSTER BY woj, pow, gmi AS
 SELECT *
 FROM `mgr-2025.mgr_2025.geo_hex`;

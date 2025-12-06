@@ -3,6 +3,7 @@ WITH hex_sample AS (
     SELECT *
     FROM `mgr-2025.mgr_2025.geo_hex`
     ORDER BY hex_0125
+    LIMIT 100000
 ),
 roads AS (
     SELECT
