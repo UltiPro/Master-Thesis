@@ -11,14 +11,12 @@ WITH ref AS (
     ) AS geom
 ),
 
--- Pobranie listy kategorii
 cats AS (
     SELECT DISTINCT category
     FROM mgr_2025.dat_poi
     WHERE category IS NOT NULL
 ),
 
--- Najbliższy POI dla każdej kategorii (K zapytań KNN)
 nearest AS (
     SELECT 
         c.category,
@@ -32,7 +30,7 @@ nearest AS (
             (geom_point_2180 <-> r.geom) AS dist
         FROM mgr_2025.dat_poi
         WHERE category = c.category
-        ORDER BY geom <-> r.geom
+        ORDER BY geom_point_2180 <-> r.geom
         LIMIT 1
     ) nn
 )
