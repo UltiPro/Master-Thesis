@@ -102,7 +102,7 @@ print(f"[geo_polska] Eksport 4326 → CSV: {t61 - t60:.6f} s")
 t70 = time.perf_counter()
 
 gdf_2180["geom_2180"] = gdf_2180.geometry.to_wkt(rounding_precision=16)
-gdf_2180.drop(columns=["geometry", "geom_2180"], errors="ignore", inplace=True)
+gdf_2180.drop(columns=["geometry", "geom_4326"], errors="ignore", inplace=True)
 gdf_2180.to_csv(OUTPUT_2180, index=False)
 
 t71 = time.perf_counter()
