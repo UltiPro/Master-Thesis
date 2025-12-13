@@ -33,60 +33,68 @@ con.install_extension("spatial")
 con.load_extension("spatial")
 
 # ============================================
-# 1. IMPORT CSV → GEOMETRY (WKT)
+# 1. IMPORT CSV → GEOMETRY (WKT) + FLIP OSI
 # ============================================
 
 start = time.perf_counter()
 
 con.execute("DROP TABLE IF EXISTS geo_polska;")
 
-con.execute(f"""
+con.execute(
+    f"""
     CREATE TABLE geo_polska AS
     SELECT
-        id::INTEGER               AS id,
-        typ::VARCHAR              AS typ,
-        nazwa::VARCHAR            AS nazwa,
-        teryt7::VARCHAR           AS teryt7,
-        woj::VARCHAR              AS woj,
-        pow::VARCHAR              AS pow,
-        gmi::VARCHAR              AS gmi,
-        rodz_gmi::VARCHAR         AS rodz_gmi,
+        id::INTEGER       AS id,
+        typ::VARCHAR      AS typ,
+        nazwa::VARCHAR    AS nazwa,
+        teryt7::VARCHAR   AS teryt7,
+        woj::VARCHAR      AS woj,
+        pow::VARCHAR      AS pow,
+        gmi::VARCHAR      AS gmi,
+        rodz_gmi::VARCHAR AS rodz_gmi,
 
-        -- geom_4326 z CSV zawiera WKT
-        ST_GeomFromText(geom_4326) AS geom_4326,
-        NULL::GEOMETRY            AS geom_2180
-    FROM read_csv_auto('{INPUT_FILE}',
+        -- WKT (lon,lat) → GEOMETRY → FLIP → (lat,lon) zgodnie z EPSG:4326
+        ST_FlipCoordinates(
+            ST_GeomFromText(geom_4326)
+        ) AS geom_4326,
+
+        NULL::GEOMETRY AS geom_2180
+    FROM read_csv_auto(
+        '{INPUT_FILE}',
         header=True,
         max_line_size=20000000
     );
-""")
+"""
+)
 
 results["import_s"] = time.perf_counter() - start
-print(f"[geo_polska] Import (CSV WKT -> GEOMETRY): {results['import_s']:.3f} s")
+print(f"[geo_polska] Import + ST_FlipCoordinates: {results['import_s']:.3f} s")
 
 # ============================================
-# 2. ST_MakeValid (naprawa geometrii)
+# 2. ST_MakeValid (ZAWSZE – MultiPolygon)
 # ============================================
 
 start = time.perf_counter()
 
-con.execute("""
+con.execute(
+    """
     UPDATE geo_polska
     SET geom_4326 = ST_MakeValid(geom_4326)
-    WHERE geom_4326 IS NOT NULL
-      AND NOT ST_IsValid(geom_4326);
-""")
+    WHERE geom_4326 IS NOT NULL;
+"""
+)
 
 results["makevalid_s"] = time.perf_counter() - start
-print(f"[geo_polska] ST_MakeValid: {results['makevalid_s']:.3f} s")
+print(f"[geo_polska] ST_MakeValid (MultiPolygon): {results['makevalid_s']:.3f} s")
 
 # ============================================
-# 3. TRANSFORMACJA 4326 → 2180 (PROJ)
+# 3. TRANSFORMACJA 4326 → 2180 (PO FLIPIE)
 # ============================================
 
 start = time.perf_counter()
 
-con.execute("""
+con.execute(
+    """
     UPDATE geo_polska
     SET geom_2180 = ST_Transform(
         geom_4326,
@@ -94,7 +102,8 @@ con.execute("""
         'EPSG:2180'
     )
     WHERE geom_4326 IS NOT NULL;
-""")
+"""
+)
 
 results["transform_s"] = time.perf_counter() - start
 print(f"[geo_polska] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
@@ -105,7 +114,8 @@ print(f"[geo_polska] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 start = time.perf_counter()
 
-con.execute(f"""
+con.execute(
+    f"""
     COPY (
         SELECT
             id,
@@ -121,7 +131,8 @@ con.execute(f"""
     )
     TO '{OUTPUT_FILE}'
     (FORMAT CSV, HEADER TRUE);
-""")
+"""
+)
 
 results["export_s"] = time.perf_counter() - start
 print(f"[geo_polska] Export CSV (4326 only): {results['export_s']:.3f} s")

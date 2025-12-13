@@ -33,7 +33,7 @@ con.install_extension("spatial")
 con.load_extension("spatial")
 
 # ============================================
-# 1. IMPORT CSV → GEOMETRY (WKT)
+# 1. IMPORT CSV → GEOMETRY (WKT) + FLIP OSI
 # ============================================
 
 start = time.perf_counter()
@@ -53,15 +53,18 @@ con.execute(
         source_name::VARCHAR           AS source_name,
         category::VARCHAR              AS category,
 
-        -- WKT już znajduje się w geom_point_4326
-        ST_GeomFromText(geom_point_4326) AS geom_point_4326,
-        NULL::GEOMETRY                   AS geom_point_2180
+        -- WKT (lon,lat) → GEOMETRY → FLIP → (lat,lon) zgodnie z EPSG:4326
+        ST_FlipCoordinates(
+            ST_GeomFromText(geom_point_4326)
+        ) AS geom_point_4326,
+
+        NULL::GEOMETRY AS geom_point_2180
     FROM read_csv_auto('{INPUT_FILE}', header=True);
 """
 )
 
 results["import_s"] = time.perf_counter() - start
-print(f"[dat_poi] Import (CSV WKT -> GEOMETRY): {results['import_s']:.3f} s")
+print(f"[dat_poi] Import + ST_FlipCoordinates: {results['import_s']:.3f} s")
 
 # ============================================
 # 2. ST_MakeValid
@@ -82,7 +85,7 @@ results["makevalid_s"] = time.perf_counter() - start
 print(f"[dat_poi] ST_MakeValid: {results['makevalid_s']:.3f} s")
 
 # ============================================
-# 3. TRANSFORMACJA 4326 → 2180 (poprawiona)
+# 3. TRANSFORMACJA 4326 → 2180 (PO FLIPIE)
 # ============================================
 
 start = time.perf_counter()
@@ -130,7 +133,6 @@ con.execute(
 
 results["export_s"] = time.perf_counter() - start
 print(f"[dat_poi] Export CSV (4326 only): {results['export_s']:.3f} s")
-
 
 # ============================================
 # PODSUMOWANIE

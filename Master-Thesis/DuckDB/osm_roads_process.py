@@ -33,7 +33,7 @@ con.install_extension("spatial")
 con.load_extension("spatial")
 
 # ============================================
-# 1. IMPORT CSV → GEOMETRY (WKT)
+# 1. IMPORT CSV → GEOMETRY (WKT) + FLIP
 # ============================================
 
 start = time.perf_counter()
@@ -44,14 +44,18 @@ con.execute(
     f"""
     CREATE TABLE osm_roads AS
     SELECT
-        id::BIGINT                 AS id,
-        osm_id::BIGINT             AS osm_id,
-        highway::VARCHAR           AS highway,
+        id::BIGINT       AS id,
+        osm_id::BIGINT   AS osm_id,
+        highway::VARCHAR AS highway,
 
-        -- WKT linii w kolumnie geom_line_4326
-        ST_GeomFromText(geom_line_4326) AS geom_line_4326,
-        NULL::GEOMETRY                 AS geom_line_2180
-    FROM read_csv_auto('{INPUT_FILE}',
+        -- WKT → GEOMETRY → FLIP (osi EPSG:4326)
+        ST_FlipCoordinates(
+            ST_GeomFromText(geom_line_4326)
+        ) AS geom_line_4326,
+
+        NULL::GEOMETRY AS geom_line_2180
+    FROM read_csv_auto(
+        '{INPUT_FILE}',
         header=True,
         max_line_size=20000000
     );
@@ -59,10 +63,10 @@ con.execute(
 )
 
 results["import_s"] = time.perf_counter() - start
-print(f"[osm_roads] Import (CSV WKT -> GEOMETRY): {results['import_s']:.3f} s")
+print(f"[osm_roads] Import + ST_FlipCoordinates: {results['import_s']:.3f} s")
 
 # ============================================
-# 2. ST_MakeValid (naprawa geometrii liniowych)
+# 2. ST_MakeValid (linie – warunkowo)
 # ============================================
 
 start = time.perf_counter()
@@ -80,7 +84,7 @@ results["makevalid_s"] = time.perf_counter() - start
 print(f"[osm_roads] ST_MakeValid: {results['makevalid_s']:.3f} s")
 
 # ============================================
-# 3. TRANSFORMACJA 4326 → 2180 (PROJ)
+# 3. TRANSFORMACJA 4326 → 2180 (PO FLIPIE)
 # ============================================
 
 start = time.perf_counter()
@@ -101,7 +105,7 @@ results["transform_s"] = time.perf_counter() - start
 print(f"[osm_roads] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
-# 4. EKSPORT DO CSV — tylko 4326 (WKT)
+# 4. EKSPORT DO CSV — tylko geometria 4326
 # ============================================
 
 start = time.perf_counter()
