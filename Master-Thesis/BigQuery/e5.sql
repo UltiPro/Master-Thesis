@@ -13,5 +13,4 @@ SELECT
     -- centroid GEOGRAPHY (współrzędne geograficzne)
     ST_CENTROID(geom_4326) AS centroid_4326
 
-FROM `mgr-2025.mgr_2025.geo_polska`
-ORDER BY id;
+FROM `mgr-2025.mgr_2025.geo_polska`;

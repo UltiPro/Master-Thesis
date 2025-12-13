@@ -1,6 +1,5 @@
 import duckdb
 import time
-import pandas as pd
 
 con = duckdb.connect("master_thesis_duckdb.db")
 con.execute("INSTALL spatial; LOAD spatial;")

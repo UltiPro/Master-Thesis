@@ -19,12 +19,4 @@ LEFT JOIN `mgr-2025.mgr_2025.dat_poi` p
 GROUP BY 
     a.admin_id, 
     a.admin_name, 
-    a.admin_type
-ORDER BY 
-    CASE a.admin_type
-        WHEN 'kraj' THEN 1
-        WHEN 'województwo' THEN 2
-        WHEN 'powiat' THEN 3
-        WHEN 'gmina' THEN 4
-    END,
-    a.admin_id;
+    a.admin_type;

@@ -30,7 +30,6 @@ poi_subset AS (
         id AS poi_id,
         geom_point_4326
     FROM `mgr-2025.mgr_2025.dat_poi`
-    ORDER BY poi_id
     LIMIT 1000
 ),
 
@@ -122,5 +121,4 @@ FROM poi_subset p
 LEFT JOIN gmina_best g USING (poi_id)
 LEFT JOIN powiat_best pw USING (poi_id)
 LEFT JOIN woj_best w USING (poi_id)
-LEFT JOIN kraj_best k USING (poi_id)
-ORDER BY poi_id;
+LEFT JOIN kraj_best k USING (poi_id);

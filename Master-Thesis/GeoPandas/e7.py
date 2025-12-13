@@ -15,7 +15,7 @@ PATH_POLSKA = r"C:\Users\Ultip\Desktop\mgr\pyt\geo_polska_2180.csv"
 PATH_POI = r"C:\Users\Ultip\Desktop\mgr\pyt\dat_poi_2180.csv"
 OUT_DIR = r"C:\Users\Ultip\Desktop\mgr\experiments"
 
-N_THREADS_E7 = 4  # ustalone wcześniej
+N_THREADS_E7 = 4
 
 
 # =========================================

@@ -105,6 +105,10 @@ UPDATE mgr_2025.dat_poi
 SET geom_point_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
 
+-- Usunięcie kolumny pomocniczej geom_wkt
+ALTER TABLE mgr_2025.dat_poi
+DROP COLUMN geom_wkt;
+
 -- Naprawa niepoprawnych geometrii w kolumnie geom_point_4326
 UPDATE mgr_2025.dat_poi
 SET geom_point_4326 = ST_MakeValid(geom_point_4326)
@@ -158,6 +162,10 @@ UPDATE mgr_2025.geo_polska
 SET geom_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
 
+-- Usunięcie kolumny pomocniczej geom_wkt
+ALTER TABLE mgr_2025.geo_polska
+DROP COLUMN geom_wkt;
+
 -- Naprawa niepoprawnych geometrii w kolumnie geom_4326
 UPDATE mgr_2025.geo_polska
 SET geom_4326 = ST_MakeValid(geom_4326)
@@ -206,6 +214,10 @@ UPDATE mgr_2025.osm_roads
 SET geom_line_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
 
+-- Usunięcie kolumny pomocniczej geom_wkt
+ALTER TABLE mgr_2025.osm_roads
+DROP COLUMN geom_wkt;
+
 -- Naprawa niepoprawnych geometrii w kolumnie geom_line_4326
 UPDATE mgr_2025.osm_roads
 SET geom_line_4326 = ST_MakeValid(geom_line_4326)
@@ -250,6 +262,10 @@ CSV HEADER;
 UPDATE mgr_2025.geo_hex
 SET geom_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
+
+-- Usunięcie kolumny pomocniczej geom_wkt
+ALTER TABLE mgr_2025.geo_hex
+DROP COLUMN geom_wkt;
 
 -- Naprawa niepoprawnych geometrii w kolumnie geom_4326
 UPDATE mgr_2025.geo_hex

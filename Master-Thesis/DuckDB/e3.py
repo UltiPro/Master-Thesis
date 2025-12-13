@@ -53,8 +53,7 @@ counts AS (
     FROM cats c
 )
 SELECT *
-FROM counts
-ORDER BY category;
+FROM counts;
 """
 
 start = time.perf_counter()

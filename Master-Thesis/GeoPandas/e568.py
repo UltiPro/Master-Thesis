@@ -131,7 +131,7 @@ def experiment_5_geo_polska_geom_features(geo_polska):
             "perimeter_m": perimeter_m,
             "centroid_2180": centroid.to_wkt(),
         }
-    ).sort_values("id")
+    )
 
     path = os.path.join(OUT_DIR, "geo_polska_geom_features_py.csv")
     out.to_csv(path, index=False)
@@ -207,7 +207,7 @@ def experiment_8_voronoi_limited(geo_polska, poi):
     total_start = time.perf_counter()
 
     # 1. 1000 punktów
-    pts = poi.sort_values("id").head(1000)
+    pts = poi.head(1000)
     point_geoms = list(pts.geometry.values)
 
     # 2. Envelope
@@ -227,7 +227,6 @@ def experiment_8_voronoi_limited(geo_polska, poi):
     vor_to_index = {geom: i for i, geom in enumerate(vor_list)}
 
     woj = geo_polska[geo_polska["typ"] == "województwo"].reset_index(drop=True)
-    woj_geoms = list(woj.geometry.values)
 
     vor_tree = STRtree(vor_list)
 
@@ -274,7 +273,6 @@ def experiment_8_voronoi_limited(geo_polska, poi):
                 area_sum_m2=("area_intersection_m2", "sum"),
             )
             .reset_index()
-            .sort_values("woj_id")
         )
 
     path = os.path.join(OUT_DIR, "voronoi_limited_py.csv")

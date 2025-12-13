@@ -42,8 +42,7 @@ kraj AS (
 poi_subset AS (
     SELECT *
     FROM dat_poi
-    ORDER BY id
-    LIMIT 10000
+    LIMIT 1000
 )
 SELECT
     p.id AS poi_id,

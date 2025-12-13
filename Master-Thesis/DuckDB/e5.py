@@ -13,8 +13,7 @@ SELECT
     ST_Area(geom_2180)      AS area_m2,
     ST_Perimeter(geom_2180) AS perimeter_m,
     ST_Centroid(geom_2180)  AS centroid_2180
-FROM geo_polska
-ORDER BY id;
+FROM geo_polska;
 """
 
 start = time.perf_counter()

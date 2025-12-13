@@ -247,9 +247,7 @@ all_cats = set()
 for counter in counts_per_radius.values():
     all_cats.update(counter.keys())
 
-categories_unique = sorted(all_cats)
-
-for cat in categories_unique:
+for cat in all_cats:
     row = {"category": cat}
     for r in radii:
         cnt = counts_per_radius[r].get(cat, 0)
@@ -320,7 +318,7 @@ powiat_tree = STRtree(powiat_geom)
 woj_tree = STRtree(woj_geom)
 kraj_tree = STRtree(kraj_geom)
 
-subset_poi = poi.sort_values("id").head(1000)
+subset_poi = poi.head(1000)
 rows = []
 
 t0 = time.perf_counter()
