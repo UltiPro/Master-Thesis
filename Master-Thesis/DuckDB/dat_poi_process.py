@@ -106,6 +106,48 @@ results["transform_s"] = time.perf_counter() - start
 print(f"[dat_poi] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
+# 3.5. INDEKSY (SPATIAL + ATRYBUTOWY)
+#     — osobny pomiar czasu
+# ============================================
+
+# --- indeks przestrzenny EPSG:4326
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_dat_poi_geom_4326
+    ON dat_poi
+    USING RTREE (geom_point_4326);
+"""
+)
+t_4326 = time.perf_counter() - start
+print(f"[dat_poi] Indeks RTREE geom_point_4326 (EPSG:4326): {t_4326:.3f} s")
+
+
+# --- indeks przestrzenny EPSG:2180
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_dat_poi_geom_2180
+    ON dat_poi
+    USING RTREE (geom_point_2180);
+"""
+)
+t_2180 = time.perf_counter() - start
+print(f"[dat_poi] Indeks RTREE geom_point_2180 (EPSG:2180): {t_2180:.3f} s")
+
+
+# --- indeks atrybutowy category
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_dat_poi_category
+    ON dat_poi (category);
+"""
+)
+t_category = time.perf_counter() - start
+print(f"[dat_poi] Indeks B-tree category: {t_category:.3f} s")
+
+# ============================================
 # 4. EKSPORT DO CSV — tylko geometria 4326 (WKT)
 # ============================================
 

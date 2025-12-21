@@ -14,13 +14,21 @@ hex_sample AS (
     FROM `mgr-2025.mgr_2025.geo_hex`
     ORDER BY hex_0125
     LIMIT 1000
+),
+intersections AS (
+    SELECT
+        h.hex_id,
+        w.woj_id,
+        h.geom AS hex_geom,
+        ST_INTERSECTION(h.geom, w.geom) AS geom_inter
+    FROM hex_sample h
+    JOIN woj w
+      ON ST_INTERSECTS(h.geom, w.geom)
 )
 SELECT
-    h.hex_id,
-    w.woj_id,
-    ST_AREA(h.geom) AS area_hex_m2,
-    ST_AREA(ST_INTERSECTION(h.geom, w.geom)) AS area_intersection_m2
-FROM hex_sample h
-JOIN woj w
-    ON ST_INTERSECTS(h.geom, w.geom)
-WHERE ST_INTERSECTION(h.geom, w.geom) IS NOT NULL;
+    hex_id,
+    woj_id,
+    ST_AREA(hex_geom) AS area_hex_m2,
+    ST_AREA(geom_inter) AS area_intersection_m2
+FROM intersections
+WHERE NOT ST_ISEMPTY(geom_inter);

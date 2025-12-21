@@ -4,6 +4,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.feat_road_longest_per_category;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.feat_road_longest_per_category AS
 WITH road_lengths AS (
     SELECT

@@ -101,6 +101,7 @@ DELIMITER ','
 CSV HEADER;
 
 -- Ustawienie SRID dla kolumny geom_point_4326 na 4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.dat_poi
 SET geom_point_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
@@ -110,18 +111,20 @@ ALTER TABLE mgr_2025.dat_poi
 DROP COLUMN geom_wkt;
 
 -- Naprawa niepoprawnych geometrii w kolumnie geom_point_4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.dat_poi
 SET geom_point_4326 = ST_MakeValid(geom_point_4326)
 WHERE NOT ST_IsValid(geom_point_4326);
 
--- Indeks przestrzenny dla kolumny geom_point_4326
-CREATE INDEX idx_dat_poi_geom_point_4326
-ON mgr_2025.dat_poi
-USING GIST (geom_point_4326);
-
 -- Conwersja geometrii punktowej z 4326 do 2180
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.dat_poi
 SET geom_point_2180 = ST_Transform(geom_point_4326, 2180);
+
+-- Indeks przestrzenny dla kolumny geom_point_2180
+CREATE INDEX idx_dat_poi_geom_point_2180
+ON mgr_2025.dat_poi
+USING GIST (geom_point_2180);
 
 -- Eksport tabeli dat_poi do CSV z geometrią w WKT
 COPY (
@@ -158,6 +161,7 @@ DELIMITER ','
 CSV HEADER;
 
 -- Ustawienie SRID dla kolumny geom_4326 na 4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_polska
 SET geom_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
@@ -167,18 +171,20 @@ ALTER TABLE mgr_2025.geo_polska
 DROP COLUMN geom_wkt;
 
 -- Naprawa niepoprawnych geometrii w kolumnie geom_4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_polska
 SET geom_4326 = ST_MakeValid(geom_4326)
 WHERE NOT ST_IsValid(geom_4326);
 
--- Indeks przestrzenny dla kolumny geom_4326
-CREATE INDEX idx_geo_polska_geom_4326
-ON mgr_2025.geo_polska
-USING GIST (geom_4326);
-
 -- Transformacja geometrii polygon z 4326 do 2180
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_polska
 SET geom_2180 = ST_Transform(geom_4326, 2180);
+
+-- Indeks przestrzenny dla kolumny geom_4326
+CREATE INDEX idx_geo_polska_geom_2180
+ON mgr_2025.geo_polska
+USING GIST (geom_2180);
 
 -- Eksport tabeli dat_poi do CSV z geometrią w WKT
 COPY (
@@ -210,6 +216,7 @@ DELIMITER ','
 CSV HEADER;
 
 -- Ustawienie SRID dla kolumny geom_line_4326 na 4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.osm_roads
 SET geom_line_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
@@ -219,18 +226,20 @@ ALTER TABLE mgr_2025.osm_roads
 DROP COLUMN geom_wkt;
 
 -- Naprawa niepoprawnych geometrii w kolumnie geom_line_4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.osm_roads
 SET geom_line_4326 = ST_MakeValid(geom_line_4326)
 WHERE NOT ST_IsValid(geom_line_4326);
 
--- Indeks przestrzenny dla kolumny geom_line_4326
-CREATE INDEX idx_osm_roads_geom_line_4326
-ON mgr_2025.osm_roads
-USING GIST (geom_line_4326);
-
 -- Conwersja geometrii liniowej z 4326 do 2180
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.osm_roads
 SET geom_line_2180 = ST_Transform(geom_line_4326, 2180);
+
+-- Indeks przestrzenny dla kolumny geom_line_4326
+CREATE INDEX idx_osm_roads_geom_line_2180
+ON mgr_2025.osm_roads
+USING GIST (geom_line_2180);
 
 -- Eksport tabeli osm_roads do CSV z geometrią w WKT
 COPY (
@@ -259,6 +268,7 @@ DELIMITER ','
 CSV HEADER;
 
 -- Ustawienie SRID dla kolumny geom_4326 na 4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_hex
 SET geom_4326 = ST_SetSRID(ST_GeomFromText(geom_wkt), 4326)
 WHERE geom_wkt IS NOT NULL;
@@ -268,18 +278,20 @@ ALTER TABLE mgr_2025.geo_hex
 DROP COLUMN geom_wkt;
 
 -- Naprawa niepoprawnych geometrii w kolumnie geom_4326
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_hex
 SET geom_4326 = ST_MakeValid(geom_4326)
 WHERE NOT ST_IsValid(geom_4326);
 
--- Indeks przestrzenny dla kolumny geom_4326
-CREATE INDEX idx_geo_hex_geom_4326
-ON mgr_2025.geo_hex
-USING GIST (geom_4326);
-
 -- Conwersja geometrii z 4326 do 2180
+EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_hex
 SET geom_2180 = ST_Transform(geom_4326, 2180);
+
+-- Indeks przestrzenny dla kolumny geom_4326
+CREATE INDEX idx_geo_hex_geom_2180
+ON mgr_2025.geo_hex
+USING GIST (geom_2180);
 
 -- Eksport tabeli geo_hex do CSV z geometrią w WKT
 COPY (
@@ -295,23 +307,6 @@ COPY (
 TO 'C:\Program Files\PostgreSQL\18\data\export_geo_hex.csv'
 WITH (FORMAT CSV, HEADER TRUE, QUOTE '"');
 
--- 2180 Indexes
-CREATE INDEX idx_dat_poi_geom_point_2180
-ON mgr_2025.dat_poi
-USING GIST (geom_point_2180);
-
-CREATE INDEX idx_geo_polska_geom_2180
-ON mgr_2025.geo_polska
-USING GIST (geom_2180);
-
-CREATE INDEX idx_osm_roads_geom_line_2180
-ON mgr_2025.osm_roads
-USING GIST (geom_line_2180);
-
-CREATE INDEX idx_geo_hex_geom_2180
-ON mgr_2025.geo_hex
-USING GIST (geom_2180);
-
 -- category index
 CREATE INDEX idx_dat_poi_category
 ON mgr_2025.dat_poi (category);
@@ -319,3 +314,7 @@ ON mgr_2025.dat_poi (category);
 -- highway index
 CREATE INDEX idx_osm_roads_highway
 ON mgr_2025.osm_roads (highway);
+
+-- typ index
+CREATE INDEX idx_geo_polska_typ
+ON mgr_2025.geo_polska (typ);

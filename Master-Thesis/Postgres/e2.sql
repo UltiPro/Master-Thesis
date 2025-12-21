@@ -4,6 +4,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.feat_poi_nearest;
 
+EXPLAIN (ANALYZE, BUFFERS)
 WITH ref AS (
     SELECT ST_Transform(
         ST_SetSRID(ST_MakePoint(19.46701915338524, 51.74357018348951), 4326),

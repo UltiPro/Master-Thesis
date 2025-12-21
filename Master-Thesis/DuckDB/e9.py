@@ -12,9 +12,7 @@ SELECT
     highway,
     AVG(ST_Length(geom_line_2180)) AS avg_length_m
 FROM osm_roads
-WHERE geom_line_2180 IS NOT NULL
-GROUP BY highway
-ORDER BY avg_length_m DESC;
+GROUP BY highway;
 """
 
 start = time.perf_counter()

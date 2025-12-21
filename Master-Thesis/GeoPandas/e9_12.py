@@ -1,228 +1,249 @@
 import os
 import time
-import numpy as np
 import pandas as pd
+import numpy as np
 import geopandas as gpd
-from shapely import wkt
-from shapely.strtree import STRtree
-from concurrent.futures import ThreadPoolExecutor
 
+from shapely.strtree import STRtree
+
+# =====================================================
+# KONFIGURACJA
+# =====================================================
 
 PATH_POI = r"C:\Users\Ultip\Desktop\mgr\pyt\dat_poi_2180.csv"
 PATH_ROADS = r"C:\Users\Ultip\Desktop\mgr\pyt\dat_roads_2180.csv"
+
 OUT_DIR = r"C:\Users\Ultip\Desktop\mgr\experiments"
+CRS = "EPSG:2180"
+
 os.makedirs(OUT_DIR, exist_ok=True)
 
-CRS_2180 = "EPSG:2180"
+# =====================================================
+# ŁADOWANIE DANYCH
+# =====================================================
 
 
 def load_gdf(path, geom_col, dtype=None):
     t0 = time.perf_counter()
     df = pd.read_csv(path, dtype=dtype)
     t1 = time.perf_counter()
-
-    df["geometry"] = df[geom_col].apply(wkt.loads)
-    gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_2180)
+    print(f"[LOAD] CSV {os.path.basename(path)}: {t1 - t0:.6f} s")
 
     t2 = time.perf_counter()
-    sindex = gdf.sindex
+    geom = gpd.GeoSeries.from_wkt(df[geom_col], crs=CRS)
+    gdf = gpd.GeoDataFrame(df.drop(columns=[geom_col]), geometry=geom)
     t3 = time.perf_counter()
+    print(f"[LOAD] WKT → geometry: {t3 - t2:.6f} s")
 
-    print(f"[LOAD] CSV {os.path.basename(path)}: {t1 - t0:.6f}s")
-    print(f"[LOAD] WKT → geometry: {t2 - t1:.6f}s")
-    print(f"[LOAD] sindex: {t3 - t2:.6f}s")
+    t4 = time.perf_counter()
+    _ = gdf.sindex
+    t5 = time.perf_counter()
+    print(f"[LOAD] sindex build: {t5 - t4:.6f} s")
 
-    return gdf, (t1 - t0), (t2 - t1), (t3 - t2)
-
-
-def chunk_gdf(gdf, num_chunks):
-    n = len(gdf)
-    size = (n + num_chunks - 1) // num_chunks
-    return [gdf.iloc[i : i + size] for i in range(0, n, size)]
+    return gdf.reset_index(drop=True)
 
 
-# =============================
-# E9
-# =============================
+# =====================================================
+# EKSPERYMENT 9
+# =====================================================
+
+
 def experiment_9_feat_road_avg_length(roads):
     print("\n==================== EKSPERYMENT 9 ====================")
+    print("[E9] Średnia długość odcinków dróg per highway")
+    print("[E9] Operacja lokalna + groupby (bez indeksów przestrzennych)")
+
     t0 = time.perf_counter()
 
     roads["length_m"] = roads.geometry.length
-    out = (
-        roads.groupby("highway")["length_m"].mean().reset_index().sort_values("length_m", ascending=False)
-    )
+
+    out = roads.groupby("highway", observed=True)["length_m"].mean().reset_index()
 
     t1 = time.perf_counter()
-    print(f"[E9] Czas obliczeń: {t1 - t0:.6f}s")
+    print(f"[E9] Liczba klas highway: {len(out)}")
+    print(f"[E9] Czas eksperymentu: {t1 - t0:.6f} s")
 
-    out_path = os.path.join(OUT_DIR, "feat_road_avg_length_py.csv")
-    out.to_csv(out_path, index=False)
-    print(f"[E9] Zapisano: {out_path}")
-
-
-# =============================
-# E10 – MULTIWORKER
-# =============================
+    out.to_csv(
+        os.path.join(OUT_DIR, "feat_road_avg_length_py.csv"),
+        index=False,
+    )
 
 
-def _worker_e10(chunk, roads, road_geoms, tree):
-    rows = []
-
-    for p in chunk.itertuples(index=False):
-        geom_p = p.geometry
-
-        # ---- POBIERANIE NAJBLIŻSZEGEO (jak <-> w PostGIS) ----
-        nearest_obj = tree.nearest(geom_p)
-
-        # STRtree.nearest potrafi zwracać różne typy:
-        # - int (index)
-        # - geometry
-        # - list/ndarray
-        if isinstance(nearest_obj, (list, np.ndarray)):
-            nearest_obj = nearest_obj[0]
-
-        # Jeśli int → to index
-        if isinstance(nearest_obj, (int, np.integer)):
-            road_idx = int(nearest_obj)
-            nearest_geom = road_geoms[road_idx]
-        else:
-            # wynik jest geometrią → musimy znaleźć index
-            nearest_geom = nearest_obj
-            road_idx = road_geoms.index(nearest_geom)
-
-        r = roads.iloc[road_idx]
-
-        dist = geom_p.distance(nearest_geom)
-
-        rows.append({"poi_id": int(p.id), "road_id": int(r.id), "distance_m": float(dist)})
-
-    return rows
+# =====================================================
+# EKSPERYMENT 10
+# =====================================================
 
 
-def experiment_10_feat_poi_nearest_road(poi, roads, num_workers=1):
-    print("\n==================== EKSPERYMENT 10 (MULTI – POPRAWIONE v2) ====================")
+def experiment_10_feat_poi_nearest_road(poi, roads):
+    print("\n==================== EKSPERYMENT 10 ====================")
+    print("[E10] Najbliższa droga dla każdego POI (STRtree nearest)")
 
+    # -------------------------------------------------
+    # Budowa STRtree – POZA czasem eksperymentu
+    # -------------------------------------------------
     road_geoms = list(roads.geometry.values)
     tree = STRtree(road_geoms)
 
-    chunks = chunk_gdf(poi, num_workers)
-    results = []
+    # mapowanie geometry → index w roads
+    geom_to_index = {geom: i for i, geom in enumerate(road_geoms)}
 
+    rows = []
+
+    # -------------------------------------------------
+    # POMIAR CZASU EKSPERYMENTU
+    # -------------------------------------------------
     t0 = time.perf_counter()
 
-    with ThreadPoolExecutor(max_workers=num_workers) as ex:
-        futures = [ex.submit(_worker_e10, chunk, roads, road_geoms, tree) for chunk in chunks]
-        for f in futures:
-            results.extend(f.result())
+    for p in poi.itertuples(index=False):
+        geom_p = p.geometry
+
+        nearest_obj = tree.nearest(geom_p)
+
+        # STRtree.nearest może zwrócić int lub geometrię
+        if isinstance(nearest_obj, (int, np.integer)):
+            road_idx = int(nearest_obj)
+            road_geom = road_geoms[road_idx]
+        else:
+            road_geom = nearest_obj
+            road_idx = geom_to_index[road_geom]
+
+        road = roads.iloc[road_idx]
+        dist = float(geom_p.distance(road_geom))
+
+        rows.append(
+            {
+                "poi_id": int(p.id),
+                "road_id": int(road.id),
+                "distance_m": dist,
+            }
+        )
 
     t1 = time.perf_counter()
-    print(f"[E10] Czas obliczeń (workers={num_workers}): {t1 - t0:.6f}s")
-    print(f"[E10] Liczba wyników: {len(results)} (POI={len(poi)})")
 
-    out = pd.DataFrame(results)
-    out_path = os.path.join(OUT_DIR, "feat_poi_nearest_road_py.csv")
-    out.to_csv(out_path, index=False)
-    print(f"[E10] Zapisano: {out_path}")
+    print(f"[E10] Czas eksperymentu: {t1 - t0:.6f} s")
+    print(f"[E10] Liczba wyników: {len(rows)}")
+
+    # zapis POZA pomiarem
+    pd.DataFrame(rows).to_csv(
+        os.path.join(OUT_DIR, "feat_poi_nearest_road_py.csv"),
+        index=False,
+    )
 
 
-# =============================
-# E11
-# =============================
+# =====================================================
+# EKSPERYMENT 11
+# =====================================================
+
+
 def experiment_11_feat_road_longest_per_category(roads):
     print("\n==================== EKSPERYMENT 11 ====================")
+    print("[E11] Najdłuższy odcinek drogi per highway")
+    print("[E11] Bez sortowania – groupby + idxmax")
+
     t0 = time.perf_counter()
 
     roads["length_m"] = roads.geometry.length
-    out = (
-        roads.sort_values(["highway", "length_m"], ascending=[True, False])
-        .groupby("highway")
-        .head(1)[["highway", "id", "length_m"]]
-        .reset_index(drop=True)
-    )
+
+    idx = roads.groupby("highway", observed=True)["length_m"].idxmax()
+    out = roads.loc[idx, ["highway", "id", "length_m"]].reset_index(drop=True)
 
     t1 = time.perf_counter()
-    print(f"[E11] Czas obliczeń: {t1 - t0:.6f}s")
+    print(f"[E11] Liczba klas highway: {len(out)}")
+    print(f"[E11] Czas eksperymentu: {t1 - t0:.6f} s")
 
-    out_path = os.path.join(OUT_DIR, "feat_road_longest_per_category_py.csv")
-    out.to_csv(out_path, index=False)
-    print(f"[E11] Zapisano: {out_path}")
+    out.to_csv(
+        os.path.join(OUT_DIR, "feat_road_longest_per_category_py.csv"),
+        index=False,
+    )
 
 
-# =============================
-# E12 – MULTIWORKER
-# =============================
-def _worker_e12(chunk, roads_geom, tree, geom_to_index):
+# =====================================================
+# EKSPERYMENT 12
+# =====================================================
+
+
+def experiment_12_feat_roads_near_poi(poi, roads, radius=500, poi_limit=None):
+    print("\n==================== EKSPERYMENT 12 ====================")
+    print(f"[E12] Suma długości dróg w promieniu {radius} m od POI")
+
+    # -------------------------------------------------
+    # LIMIT POI (deterministyczny, jak ORDER BY id LIMIT N)
+    # -------------------------------------------------
+    if poi_limit is not None:
+        poi_iter = poi.sort_values("id").head(poi_limit)
+        print(f"[E12] LIMIT POI = {poi_limit}")
+    else:
+        poi_iter = poi
+        print(f"[E12] POI = wszystkie ({len(poi)})")
+
+    roads_sidx = roads.sindex
+    bbox_counts = []
     rows = []
-    for _, p in chunk.iterrows():
-        geom_p = p.geometry
-        candidates = tree.query(geom_p.buffer(500))
-
-        if len(candidates) == 0:
-            rows.append({"poi_id": int(p["id"]), "roads_length_m_500m": 0.0})
-            continue
-
-        cand_idx = []
-        for c in candidates:
-            if isinstance(c, (int, np.integer)):
-                cand_idx.append(int(c))
-            else:
-                idx = geom_to_index.get(c)
-                if idx is not None:
-                    cand_idx.append(idx)
-
-        subset = roads_geom.iloc[cand_idx]
-        subset = subset[subset.geometry.distance(geom_p) <= 500]
-
-        total_len = float(subset.geometry.length.sum()) if len(subset) > 0 else 0.0
-        rows.append({"poi_id": int(p["id"]), "roads_length_m_500m": total_len})
-
-    return rows
-
-
-def experiment_12_feat_roads_near_poi(poi, roads, sample_size=50000, num_workers=1):
-    print("\n==================== EKSPERYMENT 12 (MULTI) ====================")
-
-    poi_sample = poi.sort_values("id").head(sample_size).copy()
-    roads_geom = roads.copy()
-    tree = STRtree(list(roads_geom.geometry.values))
-    geom_to_index = {geom: i for i, geom in enumerate(roads_geom.geometry.values)}
-
-    chunks = np.array_split(poi_sample, num_workers)
-    results = []
 
     t0 = time.perf_counter()
 
-    with ThreadPoolExecutor(max_workers=num_workers) as ex:
-        futures = [ex.submit(_worker_e12, chunk, roads_geom, tree, geom_to_index) for chunk in chunks]
-        for f in futures:
-            results.extend(f.result())
+    for p in poi_iter.itertuples(index=False):
+        buf = p.geometry.buffer(radius)
+
+        # 1) Prefiltr BBOX przez indeks przestrzenny dróg
+        idx = list(roads_sidx.intersection(buf.bounds))
+        bbox_counts.append(len(idx))
+
+        candidates = roads.iloc[idx]
+        if len(candidates) == 0:
+            rows.append(
+                {
+                    "poi_id": int(p.id),
+                    "roads_length_m_500m": 0.0,
+                    "n_bbox_candidates": 0,
+                }
+            )
+            continue
+
+        # 2) Dokładny dystans metryczny (EPSG:2180)
+        dists = candidates.geometry.distance(p.geometry)
+        near = candidates[dists <= radius]
+
+        total_len = float(near.geometry.length.sum()) if len(near) > 0 else 0.0
+
+        rows.append(
+            {
+                "poi_id": int(p.id),
+                "roads_length_m_500m": total_len,
+                "n_bbox_candidates": int(len(candidates)),
+            }
+        )
 
     t1 = time.perf_counter()
-    print(f"[E12] Czas obliczeń (workers={num_workers}): {t1 - t0:.6f}s")
 
-    out = pd.DataFrame(results)
-    out_path = os.path.join(OUT_DIR, "feat_roads_near_poi_py.csv")
-    out.to_csv(out_path, index=False)
-    print(f"[E12] Zapisano: {out_path}")
+    print(
+        f"[E12] BBox candidates – min: {min(bbox_counts)}, "
+        f"max: {max(bbox_counts)}, "
+        f"avg: {sum(bbox_counts)/len(bbox_counts):.2f}"
+    )
+    print(f"[E12] Czas eksperymentu: {t1 - t0:.6f} s")
+
+    pd.DataFrame(rows).to_csv(
+        os.path.join(OUT_DIR, "feat_roads_near_poi_py.csv"),
+        index=False,
+    )
 
 
-# =============================
+# =====================================================
 # MAIN
-# =============================
+# =====================================================
+
 if __name__ == "__main__":
-    print("=== ŁADOWANIE danych ===")
+    print("=== ŁADOWANIE DANYCH ===")
 
-    poi, poi_csv, poi_wkt, poi_sidx = load_gdf(PATH_POI, "geom_point_2180")
-    roads, r_csv, r_wkt, r_sidx = load_gdf(PATH_ROADS, "geom_line_2180")
+    poi = load_gdf(PATH_POI, "geom_point_2180")
+    roads = load_gdf(PATH_ROADS, "geom_line_2180")
 
-    print("\n=== PODSUMOWANIE ===")
-    print(f"POI: CSV={poi_csv:.6f}s, WKT={poi_wkt:.6f}s, sindex={poi_sidx:.6f}s")
-    print(f"ROADS: CSV={r_csv:.6f}s, WKT={r_wkt:.6f}s, sindex={r_sidx:.6f}s")
+    roads["highway"] = roads["highway"].astype("category")
 
-    # experiment_9_feat_road_avg_length(roads)
-    experiment_10_feat_poi_nearest_road(poi, roads, num_workers=1)
-    # experiment_11_feat_road_longest_per_category(roads)
-    # experiment_12_feat_roads_near_poi(poi, roads, sample_size=50000, num_workers=1)
+    experiment_9_feat_road_avg_length(roads)
+    experiment_10_feat_poi_nearest_road(poi, roads)
+    experiment_11_feat_road_longest_per_category(roads)
+    experiment_12_feat_roads_near_poi(poi, roads, radius=500, poi_limit=100000)
 
     print("\n=== EKSPERYMENTY 9–12 ZAKOŃCZONE ===")

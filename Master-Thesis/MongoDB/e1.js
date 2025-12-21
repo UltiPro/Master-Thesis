@@ -5,14 +5,13 @@ var result = db.dat_poi.find({
     $nearSphere: {
       $geometry: {
         type: "Point",
-        coordinates: [ 19.46701915338524, 51.74357018348951 ]
+        coordinates: [19.46701915338524, 51.74357018348951]
       },
-      $maxDistance: 50000000   // duży zakres, by nie ograniczać wyszukiwania
     }
   }
 })
-.limit(1)
-.toArray();
+  .limit(1)
+  .toArray();
 
 var end = new Date();
 

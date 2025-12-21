@@ -8,34 +8,22 @@ query = """
 CREATE OR REPLACE TABLE feat_poi_border AS
 WITH
 gmina AS (
-    SELECT
-        id,
-        geom_2180 AS geom,
-        ST_Boundary(geom_2180) AS boundary
+    SELECT id, geom_2180 AS geom, ST_Boundary(geom_2180) AS boundary
     FROM geo_polska
     WHERE typ = 'gmina'
 ),
 powiat AS (
-    SELECT
-        id,
-        geom_2180 AS geom,
-        ST_Boundary(geom_2180) AS boundary
+    SELECT id, geom_2180 AS geom, ST_Boundary(geom_2180) AS boundary
     FROM geo_polska
     WHERE typ = 'powiat'
 ),
 woj AS (
-    SELECT
-        id,
-        geom_2180 AS geom,
-        ST_Boundary(geom_2180) AS boundary
+    SELECT id, geom_2180 AS geom, ST_Boundary(geom_2180) AS boundary
     FROM geo_polska
     WHERE typ = 'województwo'
 ),
 kraj AS (
-    SELECT
-        id,
-        geom_2180 AS geom,
-        ST_Boundary(geom_2180) AS boundary
+    SELECT id, geom_2180 AS geom, ST_Boundary(geom_2180) AS boundary
     FROM geo_polska
     WHERE typ = 'kraj'
 ),

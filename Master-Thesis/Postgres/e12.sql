@@ -4,12 +4,12 @@
 
 DROP TABLE IF EXISTS mgr_2025.feat_roads_near_poi;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.feat_roads_near_poi AS
 WITH poi_sample AS (
     SELECT *
     FROM mgr_2025.dat_poi
-    ORDER BY id
-    LIMIT 50000
+    LIMIT 1000
 )
 SELECT
     p.id AS poi_id,
@@ -17,5 +17,4 @@ SELECT
 FROM poi_sample p
 JOIN mgr_2025.osm_roads r
     ON ST_DWithin(p.geom_point_2180, r.geom_line_2180, 500)
-GROUP BY p.id
-ORDER BY p.id;
+GROUP BY p.id;

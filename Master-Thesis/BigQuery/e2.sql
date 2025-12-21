@@ -29,5 +29,4 @@ SELECT
     nearest_poi_id,
     distance_m
 FROM ranked
-WHERE rn = 1
-ORDER BY category;
+WHERE rn = 1;

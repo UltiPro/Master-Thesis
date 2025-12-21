@@ -5,6 +5,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.geo_polska_buffer_intersection;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.geo_polska_buffer_intersection AS
 WITH woj AS (
     SELECT 

@@ -22,12 +22,11 @@ JOIN LATERAL (
       AND ST_DWithin(
           p.geom_point_2180,
           geom_line_2180,
-          500
+          2500
       )
     ORDER BY dist_m
     LIMIT 1
-) r ON TRUE
-ORDER BY p.id;
+) r ON TRUE;
 """
 
 start = time.perf_counter()

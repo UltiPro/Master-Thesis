@@ -1,14 +1,12 @@
 import os
 import time
-import collections
 
-import numpy as np
 import pandas as pd
+import numpy as np
 import geopandas as gpd
-from shapely import wkt
 import shapely
-from shapely.strtree import STRtree
 from pyproj import Transformer
+from shapely.strtree import STRtree
 
 # =========================================
 # KONFIGURACJA ŚCIEŻEK
@@ -18,53 +16,114 @@ PATH_POI = r"C:\Users\Ultip\Desktop\mgr\pyt\dat_poi_2180.csv"
 PATH_POLSKA = r"C:\Users\Ultip\Desktop\mgr\pyt\geo_polska_2180.csv"
 
 OUT_DIR = r"C:\Users\Ultip\Desktop\mgr\experiments"
-
 CRS_2180 = "EPSG:2180"
 
 os.makedirs(OUT_DIR, exist_ok=True)
 
-
 # =========================================
-# POMOCNICZE FUNKCJE
+# FUNKCJE POMOCNICZE
 # =========================================
 
 
 def load_gdf(path, geom_col, crs=CRS_2180, dtype=None):
-    """Wczytanie CSV + WKT→geometry z pomiarem czasu."""
+    """
+    CSV + WKT → GeoDataFrame
+    Czas wczytywania, WKT i budowy sindex raportowany osobno
+    """
 
-    # 1. Wczytanie CSV
     t0 = time.perf_counter()
     df = pd.read_csv(path, dtype=dtype)
     t1 = time.perf_counter()
     load_csv_time = t1 - t0
     print(f"[LOAD] CSV {path} → {load_csv_time:.6f} s")
 
-    # 2. Konwersja WKT → Shapely
     t2 = time.perf_counter()
-    df["geometry"] = df[geom_col].apply(wkt.loads)
-    gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=crs)
+    geom = gpd.GeoSeries.from_wkt(df[geom_col], crs=crs)
+    gdf = gpd.GeoDataFrame(df.drop(columns=[geom_col]), geometry=geom)
     t3 = time.perf_counter()
     wkt_time = t3 - t2
     print(f"[LOAD] WKT → geometry ({geom_col}) → {wkt_time:.6f} s")
 
-    # 3. (opcjonalnie) indeks GeoPandas – tylko do raportu czasu
-    t4 = time.perf_counter()
-    _ = gdf.sindex
-    t5 = time.perf_counter()
-    sindex_time = t5 - t4
-    print(f"[LOAD] GeoPandas sindex → {sindex_time:.6f} s")
-
-    # reset indeksu żeby 0..N-1 zgadzało się z kolejnością geometrii
     gdf = gdf.reset_index(drop=True)
 
-    return gdf, load_csv_time, wkt_time, sindex_time
+    t4 = time.perf_counter()
+    sidx = gdf.sindex
+    t5 = time.perf_counter()
+    sindex_time = t5 - t4
+    print(f"[LOAD] GeoPandas sindex build → {sindex_time:.6f} s")
+
+    return gdf, sidx, load_csv_time, wkt_time, sindex_time
 
 
 def safe_id(val):
-    """Konwersja ID (Int64 lub Series) do zwykłego int."""
     if isinstance(val, pd.Series):
         return int(val.iloc[0])
     return int(val)
+
+
+def nearest_point_by_sindex(gdf, sidx, ref_point, start_side=50.0, grow=2.0, max_side=200000.0):
+    side = float(start_side)
+
+    while True:
+        bbox = (
+            ref_point.x - side,
+            ref_point.y - side,
+            ref_point.x + side,
+            ref_point.y + side,
+        )
+
+        idx = list(sidx.intersection(bbox))
+        candidates = gdf.iloc[idx]
+
+        if len(candidates) > 0:
+            dists = candidates.geometry.distance(ref_point)
+            pos = dists.idxmin()
+            return gdf.loc[pos], len(candidates), side
+
+        side *= grow
+        if side > max_side:
+            raise RuntimeError("Nie znaleziono kandydatów – sprawdź CRS/dane.")
+
+
+def nearest_in_category(gdf, sidx, ref_point, cat, start_side=200.0, grow=2.0, max_side=200000.0):
+    side = float(start_side)
+
+    while True:
+        bbox = (
+            ref_point.x - side,
+            ref_point.y - side,
+            ref_point.x + side,
+            ref_point.y + side,
+        )
+
+        idx = list(sidx.intersection(bbox))
+        candidates = gdf.iloc[idx]
+        cand_cat = candidates[candidates["category"] == cat]
+
+        if len(cand_cat) > 0:
+            dists = cand_cat.geometry.distance(ref_point)
+            pos = dists.idxmin()
+            return gdf.loc[pos], len(candidates), len(cand_cat), side
+
+        side *= grow
+        if side > max_side:
+            return None, len(candidates), 0, side
+
+
+def find_unit_gpd(point_geom, gdf_sub, sidx_sub):
+    idx = list(sidx_sub.intersection(point_geom.bounds))
+    if not idx:
+        return None, 0
+
+    candidates = gdf_sub.iloc[idx]
+    mask = candidates.geometry.contains(point_geom)
+
+    if mask.any():
+        return candidates[mask].iloc[0], len(candidates)
+
+    dists = candidates.geometry.distance(point_geom)
+    pos = dists.idxmin()
+    return gdf_sub.loc[pos], len(candidates)
 
 
 # =========================================
@@ -72,282 +131,225 @@ def safe_id(val):
 # =========================================
 
 print("\n=== Wczytywanie dat_poi_2180 ===")
-poi, poi_t_csv, poi_t_wkt, poi_t_idx = load_gdf(
+poi, poi_sidx, poi_t_csv, poi_t_wkt, poi_t_idx = load_gdf(
     PATH_POI,
     "geom_point_2180",
-    dtype={
-        "id": "Int64",
-        "osm_id": "Int64",
-        "name_brand": "string",
-        "name_brand_clean": "string",
-        "name": "string",
-        "name_clean": "string",
-        "source_name": "string",
-        "category": "string",
-        "geom_point_2180": "string",
-    },
+    dtype={"id": "Int64", "category": "string", "geom_point_2180": "string"},
 )
 
 print("\n=== Wczytywanie geo_polska_2180 ===")
-polska, pol_t_csv, pol_t_wkt, pol_t_idx = load_gdf(
+polska, polska_sidx, pol_t_csv, pol_t_wkt, pol_t_idx = load_gdf(
     PATH_POLSKA,
     "geom_2180",
-    dtype={
-        "id": "Int64",
-        "typ": "string",
-        "nazwa": "string",
-        "teryt7": "string",
-        "woj": "string",
-        "pow": "string",
-        "gmi": "string",
-        "rodz_gmi": "string",
-        "geom_2180": "string",
-    },
+    dtype={"id": "Int64", "typ": "string", "geom_2180": "string"},
 )
 
-# STRtree dla wszystkich POI (używany w E1 i E3)
-poi_geom = list(poi.geometry.values)
-t0 = time.perf_counter()
-poi_tree = STRtree(poi_geom)
-t1 = time.perf_counter()
-print(f"\n[POI] STRtree (Shapely) index → {t1 - t0:.6f} s")
+poi["category"] = poi["category"].astype("category")
+polska["typ"] = polska["typ"].astype("category")
 
-# ===========================
-# Punkt referencyjny z 4326 → 2180
-# ===========================
-lon = 19.46701915338524
-lat = 51.74357018348951
+# =========================================
+# Punkt referencyjny
+# =========================================
 
 transformer = Transformer.from_crs("EPSG:4326", "EPSG:2180", always_xy=True)
-x_2180, y_2180 = transformer.transform(lon, lat)
+x, y = transformer.transform(19.46701915338524, 51.74357018348951)
 
-print(f"[REF] Punkt referencyjny 4326: ({lon}, {lat})")
-print(f"[REF] Punkt referencyjny 2180: ({x_2180}, {y_2180})")
+print(f"\n[REF] Punkt referencyjny 4326: (19.46701915338524, 51.74357018348951)")
+print(f"[REF] Punkt referencyjny 2180: ({x}, {y})")
 
-ref_point = shapely.Point(x_2180, y_2180)
+ref_point = shapely.Point(x, y)
 
 # =========================================
-# EKSPERYMENT 1 — Najbliższy POI do punktu
+# EKSPERYMENT 1
 # =========================================
 
-print("\n==================== EKSPERYMENT 1 ====================")
+print("\n==================== EKSPERYMENT 1b (STRtree NN) ====================")
+
+poi_geoms = list(poi.geometry.values)
+tree = STRtree(poi_geoms)
 
 t0 = time.perf_counter()
-nearest_geom = poi_tree.nearest(ref_point)
 
-# STRtree może zwrócić geometrię albo indeks – obsługujemy oba przypadki
-if isinstance(nearest_geom, (int, np.integer)):
-    pos = int(nearest_geom)
+nearest = tree.nearest(ref_point)
+
+# mapowanie geometria → index
+if isinstance(nearest, (int, np.integer)):
+    idx = int(nearest)
 else:
-    pos = poi_geom.index(nearest_geom)
+    idx = poi_geoms.index(nearest)
 
-row_nearest = poi.iloc[pos]
-dist_val = float(row_nearest.geometry.distance(ref_point))
+row = poi.iloc[idx]
+dist_val = float(row.geometry.distance(ref_point))
+
 t1 = time.perf_counter()
 
-poi_id = safe_id(row_nearest["id"])
-
-print("Najbliższy POI ID:", poi_id)
-print("Odległość [m]:", dist_val)
-print(f"Czas eksperymentu 1 (Python): {t1 - t0:.6f} s")
-
-df_exp1 = pd.DataFrame(
-    [
-        {
-            "poi_id": poi_id,
-            "distance_m": dist_val,
-        }
-    ]
-)
-df_exp1.to_csv(os.path.join(OUT_DIR, "feat_poi_nearest_point.csv"), index=False)
+print(f"Czas eksperymentu 1b (STRtree): {t1 - t0:.6f} s")
 
 
 # =========================================
-# EKSPERYMENT 2 — Najbliższy POI dla każdej kategorii
+# EKSPERYMENT 2
 # =========================================
 
-print("\n==================== EKSPERYMENT 2 ====================")
+print("\n==================== EKSPERYMENT 2 (GeoPandas sindex) ====================")
 
 categories = poi["category"].dropna().unique()
-results_exp2 = []
-
-t0_total = time.perf_counter()
-
-for cat in categories:
-    subset = poi[poi["category"] == cat].copy()
-    if subset.empty:
-        continue
-
-    subset = subset.reset_index(drop=True)
-    sub_geom = list(subset.geometry.values)
-    sub_tree = STRtree(sub_geom)
-
-    nearest_geom = sub_tree.nearest(ref_point)
-
-    if isinstance(nearest_geom, (int, np.integer)):
-        pos = int(nearest_geom)
-    else:
-        pos = sub_geom.index(nearest_geom)
-
-    row_cat = subset.iloc[pos]
-    poi_id = safe_id(row_cat["id"])
-    dist_val = float(row_cat.geometry.distance(ref_point))
-
-    results_exp2.append(
-        {
-            "category": cat,
-            "poi_id": poi_id,
-            "distance_m": dist_val,
-        }
-    )
-
-t1_total = time.perf_counter()
-print(f"Czas eksperymentu 2 (Python): {t1_total - t0_total:.6f} s")
-
-df_exp2 = pd.DataFrame(results_exp2)
-df_exp2.to_csv(os.path.join(OUT_DIR, "feat_poi_nearest.csv"), index=False)
-
-
-# =========================================
-# EKSPERYMENT 3 — Liczenie POI w promieniach (ST_DWithin)
-# =========================================
-
-print("\n==================== EKSPERYMENT 3 ====================")
-
-radii = [50, 100, 500, 1000, 5000, 50000, 100000]
-results_exp3 = []
-
-# używamy tego samego poi_tree i poi_geom
-t0_total = time.perf_counter()
-
-# precompute: counts_per_radius[r] = Counter(category → liczba)
-counts_per_radius = {}
-
-for r in radii:
-    # zapytanie DWithin do STRtree
-    res = poi_tree.query(ref_point, predicate="dwithin", distance=r)
-
-    idxs = []
-    for item in res:
-        if isinstance(item, (int, np.integer)):
-            idxs.append(int(item))
-        else:
-            idxs.append(poi_geom.index(item))
-
-    if len(idxs) == 0:
-        counts_per_radius[r] = collections.Counter()
-        continue
-
-    cats_r = poi["category"].iloc[idxs]
-    counter = collections.Counter([c for c in cats_r if isinstance(c, str)])
-    counts_per_radius[r] = counter
-
-# zbuduj listę kategorii z wszystkich promieni
-all_cats = set()
-for counter in counts_per_radius.values():
-    all_cats.update(counter.keys())
-
-for cat in all_cats:
-    row = {"category": cat}
-    for r in radii:
-        cnt = counts_per_radius[r].get(cat, 0)
-        row[f"cnt_{r}m"] = int(cnt)
-    results_exp3.append(row)
-
-t1_total = time.perf_counter()
-print(f"Czas eksperymentu 3 (Python): {t1_total - t0_total:.6f} s")
-
-df_exp3 = pd.DataFrame(results_exp3)
-df_exp3.to_csv(os.path.join(OUT_DIR, "feat_poi_multibuffer.csv"), index=False)
-
-
-# =========================================
-# EKSPERYMENT 4 — Odległość do granic jednostek adm.
-# =========================================
-
-print("\n==================== EKSPERYMENT 4 ====================")
-
-
-# Funkcja znajdująca jednostkę administracyjną
-def find_unit(point_geom, gdf, sidx, geom_list):
-    """
-    Wyszukiwanie jednostki administracyjnej (gmina, powiat, woj, kraj)
-    odwzorowujące PostGIS ST_Contains + fallback.
-    """
-
-    candidates = sidx.query(point_geom)
-
-    if len(candidates) == 0:
-        return None
-
-    # zamiana kandydatów na indeksy w gdf (zakładamy reset_index(drop=True))
-    real_pos = []
-    for c in candidates:
-        if isinstance(c, (int, np.integer)):
-            real_pos.append(int(c))
-        else:
-            real_pos.append(geom_list.index(c))
-
-    subset = gdf.iloc[real_pos]
-
-    contains_mask = subset.geometry.contains(point_geom)
-
-    if contains_mask.sum() > 0:
-        return subset[contains_mask].iloc[0]
-
-    # fallback: najbliższy polygon
-    distances = subset.geometry.distance(point_geom)
-    nearest_pos = distances.values.argmin()
-    return subset.iloc[nearest_pos]
-
-
-polska["boundary"] = polska.geometry.boundary
-
-gmina = polska[polska["typ"] == "gmina"].reset_index(drop=True)
-powiat = polska[polska["typ"] == "powiat"].reset_index(drop=True)
-woj = polska[polska["typ"] == "województwo"].reset_index(drop=True)
-kraj = polska[polska["typ"] == "kraj"].reset_index(drop=True)
-
-gmina_geom = list(gmina.geometry.values)
-powiat_geom = list(powiat.geometry.values)
-woj_geom = list(woj.geometry.values)
-kraj_geom = list(kraj.geometry.values)
-
-gmina_tree = STRtree(gmina_geom)
-powiat_tree = STRtree(powiat_geom)
-woj_tree = STRtree(woj_geom)
-kraj_tree = STRtree(kraj_geom)
-
-subset_poi = poi.head(1000)
 rows = []
 
 t0 = time.perf_counter()
 
-for _, p in subset_poi.iterrows():
-    geom_p = p.geometry
-
-    gmi_row = find_unit(geom_p, gmina, gmina_tree, gmina_geom)
-    pow_row = find_unit(geom_p, powiat, powiat_tree, powiat_geom)
-    woj_row = find_unit(geom_p, woj, woj_tree, woj_geom)
-    kraj_row = find_unit(geom_p, kraj, kraj_tree, kraj_geom)
+for cat in categories:
+    row, n_bbox, n_cat, side = nearest_in_category(poi, poi_sidx, ref_point, cat)
+    if row is None:
+        continue
 
     rows.append(
         {
-            "poi_id": safe_id(p["id"]),
-            "dist_gmina": float(geom_p.distance(gmi_row["boundary"])),
-            "dist_powiat": float(geom_p.distance(pow_row["boundary"])),
-            "dist_woj": float(geom_p.distance(woj_row["boundary"])),
-            "dist_kraj": float(geom_p.distance(kraj_row["boundary"])),
+            "category": str(cat),
+            "poi_id": safe_id(row["id"]),
+            "distance_m": float(row.geometry.distance(ref_point)),
+            "n_bbox_candidates": int(n_bbox),
+            "n_cat_candidates": int(n_cat),
+            "bbox_side": float(side),
         }
     )
 
 t1 = time.perf_counter()
-print(f"Czas eksperymentu 4 (Python): {t1 - t0:.6f} s")
+print(f"Czas eksperymentu 2: {t1 - t0:.6f} s")
 
-df_exp4 = pd.DataFrame(rows)
-df_exp4.to_csv(os.path.join(OUT_DIR, "feat_poi_border.csv"), index=False)
+# --- zapis POZA pomiarem ---
+pd.DataFrame(rows).to_csv(
+    os.path.join(OUT_DIR, "exp2_poi_nearest_by_category_py.csv"),
+    index=False,
+)
+
+
+# =========================================
+# EKSPERYMENT 3 — Liczba POI per kategoria w promieniach
+# =========================================
+
+print("\n==================== EKSPERYMENT 3 (GeoPandas sindex) ====================")
+print("[E3] Liczba POI z każdej kategorii w promieniach od punktu referencyjnego")
+
+radii = [50, 100, 500, 1000, 5000, 50000, 100000]
+
+t0 = time.perf_counter()
+
+# przechowamy wyniki jako: radius -> Series(category -> count)
+counts_by_radius = {}
+stats_rows = []  # do logów/metadanych (bbox, within)
+
+for r in radii:
+    buf = ref_point.buffer(r)
+
+    # prefiltr bbox przez indeks przestrzenny
+    idx = list(poi_sidx.intersection(buf.bounds))
+    candidates = poi.iloc[idx]
+
+    if len(candidates) == 0:
+        # brak kandydatów = same zera
+        counts_by_radius[r] = pd.Series(dtype="int64")
+        stats_rows.append(
+            {
+                "radius_m": r,
+                "n_total_poi": len(poi),
+                "n_bbox_candidates": 0,
+                "n_within_radius": 0,
+            }
+        )
+        print(f"r={r:>6}m | N total={len(poi)} | N bbox candidates=0 | N within=0")
+        continue
+
+    # dokładna predykcja: dystans metryczny w EPSG:2180
+    dists = candidates.geometry.distance(ref_point)
+    within = candidates[dists <= r]
+
+    # policz per kategoria (tylko w obrębie within)
+    # observed=True -> bez generowania nieobecnych kategorii
+    cat_counts = within.groupby("category", observed=True).size()
+    counts_by_radius[r] = cat_counts
+
+    stats_rows.append(
+        {
+            "radius_m": r,
+            "n_total_poi": len(poi),
+            "n_bbox_candidates": int(len(candidates)),
+            "n_within_radius": int(len(within)),
+        }
+    )
+
+    print(
+        f"r={r:>6}m | N total={len(poi)} | "
+        f"N bbox candidates={len(candidates)} | N within={len(within)}"
+    )
+
+t1 = time.perf_counter()
+print(f"Czas eksperymentu 3: {t1 - t0:.6f} s")
+
+# 1) Wynik główny: tabela (category × promień)
+# zbuduj pełną listę kategorii występujących w jakimkolwiek promieniu
+all_categories = set()
+for s in counts_by_radius.values():
+    all_categories.update([c for c in s.index if pd.notna(c)])
+
+rows_out = []
+for cat in sorted(all_categories, key=lambda x: str(x)):
+    row = {"category": str(cat)}
+    for r in radii:
+        row[f"cnt_{r}m"] = int(counts_by_radius[r].get(cat, 0))
+    rows_out.append(row)
+
+df_exp3 = pd.DataFrame(rows_out)
+df_exp3.to_csv(
+    os.path.join(OUT_DIR, "exp3_poi_counts_per_category_by_radius_py.csv"),
+    index=False,
+)
+
+
+# =========================================
+# EKSPERYMENT 4
+# =========================================
+
+print("\n==================== EKSPERYMENT 4 (GeoPandas sindex) ====================")
+
+polska["boundary"] = polska.geometry.boundary
+layers = {}
+
+for typ in ["gmina", "powiat", "województwo", "kraj"]:
+    sub = polska[polska["typ"] == typ].reset_index(drop=True)
+    layers[typ] = (sub, sub.sindex)
+
+rows = []
+subset_poi = poi.head(500000)
+
+t0 = time.perf_counter()
+
+for p in subset_poi.itertuples(index=False):
+    row = {"poi_id": int(p.id)}
+
+    for typ, (gdf_sub, sidx_sub) in layers.items():
+        unit, n_bbox = find_unit_gpd(p.geometry, gdf_sub, sidx_sub)
+        row[f"n_bbox_{typ}"] = int(n_bbox)
+        row[f"dist_{typ}"] = float(p.geometry.distance(unit["boundary"])) if unit is not None else None
+
+    rows.append(row)
+
+t1 = time.perf_counter()
+print(f"Czas eksperymentu 4: {t1 - t0:.6f} s")
+
+# --- zapis POZA pomiarem ---
+pd.DataFrame(rows).to_csv(
+    os.path.join(OUT_DIR, "exp4_poi_distance_to_admin_py.csv"),
+    index=False,
+)
+
+
+# =========================================
+# PODSUMOWANIE
+# =========================================
 
 print("\n==================== PODSUMOWANIE PRZYGOTOWANIA DANYCH ====================")
-print(f"[POI]    CSV: {poi_t_csv:.6f}s | WKT: {poi_t_wkt:.6f}s | sindex(GeoPandas): {poi_t_idx:.6f}s")
-print(f"[POLSKA] CSV: {pol_t_csv:.6f}s | WKT: {pol_t_wkt:.6f}s | sindex(GeoPandas): {pol_t_idx:.6f}s")
-print("===========================================================================")
+print(f"[POI]    CSV: {poi_t_csv:.6f}s | WKT: {poi_t_wkt:.6f}s | sindex: {poi_t_idx:.6f}s | N={len(poi)}")
+print(
+    f"[POLSKA] CSV: {pol_t_csv:.6f}s | WKT: {pol_t_wkt:.6f}s | sindex: {pol_t_idx:.6f}s | N={len(polska)}"
+)
+print("============================================================================")

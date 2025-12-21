@@ -105,6 +105,48 @@ results["transform_s"] = time.perf_counter() - start
 print(f"[osm_roads] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
+# 3.5. INDEKSY (SPATIAL + ATRYBUTOWY)
+#     — osm_roads
+# ============================================
+
+# --- indeks przestrzenny EPSG:4326 (LineString / MultiLineString)
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_osm_roads_geom_4326
+    ON osm_roads
+    USING RTREE (geom_line_4326);
+"""
+)
+t_4326 = time.perf_counter() - start
+print(f"[osm_roads] Indeks RTREE geom_line_4326 (EPSG:4326): {t_4326:.3f} s")
+
+
+# --- indeks przestrzenny EPSG:2180 (LineString / MultiLineString)
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_osm_roads_geom_2180
+    ON osm_roads
+    USING RTREE (geom_line_2180);
+"""
+)
+t_2180 = time.perf_counter() - start
+print(f"[osm_roads] Indeks RTREE geom_line_2180 (EPSG:2180): {t_2180:.3f} s")
+
+
+# --- indeks atrybutowy highway
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_osm_roads_highway
+    ON osm_roads (highway);
+"""
+)
+t_highway = time.perf_counter() - start
+print(f"[osm_roads] Indeks B-tree highway: {t_highway:.3f} s")
+
+# ============================================
 # 4. EKSPORT DO CSV — tylko geometria 4326
 # ============================================
 

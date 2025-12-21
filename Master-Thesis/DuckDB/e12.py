@@ -9,11 +9,8 @@ DROP TABLE IF EXISTS feat_roads_near_poi;
 
 CREATE TABLE feat_roads_near_poi AS
 WITH poi_sample AS (
-    SELECT
-        id,
-        geom_point_2180
+    SELECT *
     FROM dat_poi
-    ORDER BY id
     LIMIT 1000
 )
 SELECT
@@ -26,8 +23,7 @@ JOIN osm_roads r
         r.geom_line_2180,
         500
     )
-GROUP BY p.id
-ORDER BY p.id;
+GROUP BY p.id;
 """
 
 start = time.perf_counter()

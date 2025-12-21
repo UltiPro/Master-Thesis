@@ -4,6 +4,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.geo_hex_woj_join;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.geo_hex_woj_join AS
 WITH woj AS (
     SELECT 
@@ -20,13 +21,21 @@ hex_sample AS (
     FROM mgr_2025.geo_hex
     ORDER BY hex_0125
     LIMIT 1000
+),
+intersections AS (
+    SELECT
+        h.hex_id,
+        w.woj_id,
+        h.geom_2180 AS hex_geom,
+        ST_Intersection(h.geom_2180, w.geom_2180) AS geom_inter
+    FROM hex_sample h
+    JOIN woj w
+      ON ST_Intersects(h.geom_2180, w.geom_2180)
 )
 SELECT
-    h.hex_id,
-    w.woj_id,
-    ST_Area(h.geom_2180) AS area_hex_m2,
-    ST_Area(ST_Intersection(h.geom_2180, w.geom_2180)) AS area_intersection_m2
-FROM hex_sample h
-JOIN woj w
-    ON ST_Intersects(h.geom_2180, w.geom_2180)
-WHERE ST_Intersection(h.geom_2180, w.geom_2180) IS NOT NULL;
+    hex_id,
+    woj_id,
+    ST_Area(hex_geom) AS area_hex_m2,
+    ST_Area(geom_inter) AS area_intersection_m2
+FROM intersections
+WHERE NOT ST_IsEmpty(geom_inter);

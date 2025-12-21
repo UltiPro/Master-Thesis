@@ -6,6 +6,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.voronoi_limited;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.voronoi_limited AS
 WITH 
 
@@ -13,7 +14,6 @@ WITH
 pts AS (
     SELECT geom_point_2180
     FROM mgr_2025.dat_poi
-    ORDER BY id
     LIMIT 1000
 ),
 
@@ -51,5 +51,4 @@ SELECT
 FROM voronoi v
 JOIN woj w
     ON ST_Intersects(v.cell, w.geom_2180)
-GROUP BY w.id, w.name
-ORDER BY w.id;
+GROUP BY w.id, w.name;

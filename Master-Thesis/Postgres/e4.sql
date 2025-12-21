@@ -5,6 +5,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.feat_poi_border;
 
+EXPLAIN (ANALYZE, BUFFERS)
 WITH
 
 -- Jednostki administracyjne z boundary
@@ -36,7 +37,6 @@ kraj AS (
 poi_subset AS (
     SELECT *
     FROM mgr_2025.dat_poi
-    ORDER BY id
     LIMIT 1000
 )
 

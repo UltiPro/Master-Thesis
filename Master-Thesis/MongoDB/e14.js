@@ -3,10 +3,9 @@ db.vw_hex_poi_counts_mongo.drop();
 
 var start = new Date();
 
-// Pobierz pierwsze 1000 hexów
+// Pobierz 1000000 hexów
 const hexes = db.geo_hex
     .find({})
-    .sort({ hex_0125: 1 })
     .limit(1000000)
     .toArray();
 

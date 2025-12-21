@@ -26,9 +26,7 @@ kraj AS (
 
 -- Pobieramy POI (1000 jak w PostGIS)
 poi_subset AS (
-    SELECT 
-        id AS poi_id,
-        geom_point_4326
+    SELECT *
     FROM `mgr-2025.mgr_2025.dat_poi`
     LIMIT 1000
 ),
@@ -38,11 +36,11 @@ poi_subset AS (
 -- ============================
 gmina_match AS (
     SELECT
-        p.poi_id,
+        p.id,
         g.gmina_id,
         ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(g.geom)) AS dist,
         ROW_NUMBER() OVER (
-            PARTITION BY p.poi_id 
+            PARTITION BY p.id 
             ORDER BY ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(g.geom))
         ) AS rn
     FROM poi_subset p
@@ -50,7 +48,7 @@ gmina_match AS (
       ON ST_CONTAINS(g.geom, p.geom_point_4326)
 ),
 gmina_best AS (
-    SELECT poi_id, gmina_id, dist AS dist_gmina
+    SELECT id, gmina_id, dist AS dist_gmina
     FROM gmina_match WHERE rn = 1
 ),
 
@@ -59,11 +57,11 @@ gmina_best AS (
 -- ============================
 powiat_match AS (
     SELECT
-        p.poi_id,
+        p.id,
         pw.powiat_id,
         ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(pw.geom)) AS dist,
         ROW_NUMBER() OVER (
-            PARTITION BY p.poi_id 
+            PARTITION BY p.id 
             ORDER BY ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(pw.geom))
         ) AS rn
     FROM poi_subset p
@@ -71,7 +69,7 @@ powiat_match AS (
       ON ST_CONTAINS(pw.geom, p.geom_point_4326)
 ),
 powiat_best AS (
-    SELECT poi_id, powiat_id, dist AS dist_powiat
+    SELECT id, powiat_id, dist AS dist_powiat
     FROM powiat_match WHERE rn = 1
 ),
 
@@ -80,11 +78,11 @@ powiat_best AS (
 -- ============================
 woj_match AS (
     SELECT
-        p.poi_id,
+        p.id,
         w.woj_id,
         ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(w.geom)) AS dist,
         ROW_NUMBER() OVER (
-            PARTITION BY p.poi_id 
+            PARTITION BY p.id 
             ORDER BY ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(w.geom))
         ) AS rn
     FROM poi_subset p
@@ -92,7 +90,7 @@ woj_match AS (
       ON ST_CONTAINS(w.geom, p.geom_point_4326)
 ),
 woj_best AS (
-    SELECT poi_id, woj_id, dist AS dist_woj
+    SELECT id, woj_id, dist AS dist_woj
     FROM woj_match WHERE rn = 1
 ),
 
@@ -101,7 +99,7 @@ woj_best AS (
 -- ============================
 kraj_best AS (
     SELECT
-        p.poi_id,
+        p.id,
         k.kraj_id,
         ST_DISTANCE(p.geom_point_4326, ST_BOUNDARY(k.geom)) AS dist_kraj
     FROM poi_subset p
@@ -112,13 +110,13 @@ kraj_best AS (
 -- Wynik końcowy
 -- ============================
 SELECT
-    p.poi_id,
+    p.id,
     g.dist_gmina,
     pw.dist_powiat,
     w.dist_woj,
     k.dist_kraj
 FROM poi_subset p
-LEFT JOIN gmina_best g USING (poi_id)
-LEFT JOIN powiat_best pw USING (poi_id)
-LEFT JOIN woj_best w USING (poi_id)
-LEFT JOIN kraj_best k USING (poi_id);
+LEFT JOIN gmina_best g USING (id)
+LEFT JOIN powiat_best pw USING (id)
+LEFT JOIN woj_best w USING (id)
+LEFT JOIN kraj_best k USING (id);

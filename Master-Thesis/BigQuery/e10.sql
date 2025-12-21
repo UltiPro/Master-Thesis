@@ -10,7 +10,7 @@ WITH candidate_roads AS (
         ST_DISTANCE(p.geom_point_4326, r.geom_line_4326) AS dist
     FROM `mgr-2025.mgr_2025.dat_poi` p
     JOIN `mgr-2025.mgr_2025.osm_roads` r
-    ON ST_DWITHIN(p.geom_point_4326, r.geom_line_4326, 500)  -- bufor 500 m
+    ON ST_DWITHIN(p.geom_point_4326, r.geom_line_4326, 2500)
 )
 SELECT
     poi_id,
@@ -21,5 +21,4 @@ FROM (
         ROW_NUMBER() OVER (PARTITION BY poi_id ORDER BY dist ASC) AS rn
     FROM candidate_roads
 )
-WHERE rn = 1
-ORDER BY poi_id;
+WHERE rn = 1;

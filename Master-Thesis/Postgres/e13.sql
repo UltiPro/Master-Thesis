@@ -1,10 +1,11 @@
 -- =====================================================================
 -- UnaryUnion heksagonów w obrębie województw.
--- Limit na 1,000,000 hexagonów.
+-- Limit na 1,000,000 hexagonów posortowanych.
 -- =====================================================================
 
 DROP TABLE IF EXISTS mgr_2025.geo_hex_union_woj;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.geo_hex_union_woj AS
 WITH woj AS (
     SELECT 

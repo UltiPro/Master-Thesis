@@ -4,6 +4,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.feat_poi_nearest_road;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.feat_poi_nearest_road AS
 SELECT
     p.id AS poi_id,
@@ -15,5 +16,4 @@ JOIN LATERAL (
     FROM mgr_2025.osm_roads
     ORDER BY geom_line_2180 <-> p.geom_point_2180
     LIMIT 1
-) r ON TRUE
-ORDER BY p.id;
+) r ON TRUE;

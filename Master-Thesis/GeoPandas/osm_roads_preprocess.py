@@ -1,24 +1,23 @@
 import time
 import pandas as pd
 import geopandas as gpd
-from shapely import wkt
+from shapely.strtree import STRtree
 
 # ============================
-#  KONFIGURACJA
+# KONFIGURACJA
 # ============================
 
-INPUT_CSV = r"C:\\Users\\Ultip\\Desktop\\mgr\\dat_roads.csv"
-OUTPUT_4326 = r"C:\\Users\\Ultip\\Desktop\\mgr\\pyt\\dat_roads_4326.csv"
-OUTPUT_2180 = r"C:\\Users\\Ultip\\Desktop\\mgr\\pyt\\dat_roads_2180.csv"
+INPUT_CSV = r"C:\Users\Ultip\Desktop\mgr\dat_roads.csv"
+OUTPUT_CSV = r"C:\Users\Ultip\Desktop\mgr\pyt\dat_roads_2180.csv"
 
 CRS_4326 = "EPSG:4326"
 CRS_2180 = "EPSG:2180"
 
 # ============================
-#  1. WCZYTANIE CSV + KONWERSJA WKT
+# 1. IMPORT CSV
 # ============================
 
-t00 = time.perf_counter()
+t0 = time.perf_counter()
 
 df = pd.read_csv(
     INPUT_CSV,
@@ -30,75 +29,90 @@ df = pd.read_csv(
     },
 )
 
-t01 = time.perf_counter()
-print(f"[osm_roads] Wczytanie CSV: {t01 - t00:.6f} s")
-
-# WKT → Shapely
-t10 = time.perf_counter()
-df["geometry"] = df["geom_line_4326"].dropna().apply(wkt.loads)
-gdf_4326 = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_4326)
-t11 = time.perf_counter()
-
-print(f"[osm_roads] Konwersja WKT → geometry + GeoDataFrame: {t11 - t10:.6f} s")
+t1 = time.perf_counter()
+print(f"[osm_roads] Import CSV: {t1 - t0:.6f} s")
 
 # ============================
-#  2. MAKE VALID
+# 2. WKT → GEOMETRY (4326)
+# ============================
+
+t2 = time.perf_counter()
+
+df = df.dropna(subset=["geom_line_4326"]).reset_index(drop=True)
+geom_4326 = gpd.GeoSeries.from_wkt(df["geom_line_4326"], crs=CRS_4326)
+gdf_4326 = gpd.GeoDataFrame(
+    df.drop(columns=["geom_line_4326"]),
+    geometry=geom_4326,
+)
+
+t3 = time.perf_counter()
+print(f"[osm_roads] WKT → geometry (4326): {t3 - t2:.6f} s")
+
+# ============================
+# 3. MAKE VALID (buffer 0)
 # ============================
 
 invalid_before = (~gdf_4326.geometry.is_valid).sum()
 
-t20 = time.perf_counter()
-gdf_4326.loc[~gdf_4326.geometry.is_valid, "geometry"] = gdf_4326.loc[
-    ~gdf_4326.geometry.is_valid, "geometry"
-].buffer(0)
-t21 = time.perf_counter()
+t4 = time.perf_counter()
+
+mask = ~gdf_4326.geometry.is_valid
+if mask.any():
+    gdf_4326.loc[mask, "geometry"] = gdf_4326.loc[mask, "geometry"].buffer(0)
+
+t5 = time.perf_counter()
 
 invalid_after = (~gdf_4326.geometry.is_valid).sum()
 
-print(f"[osm_roads] Nieprawidłowe geometrie przed MakeValid: {invalid_before}")
-print(f"[osm_roads] Nieprawidłowe geometrie po MakeValid: {invalid_after}")
-print(f"[osm_roads] MakeValid: {t21 - t20:.6f} s")
+print(f"[osm_roads] MakeValid (buffer 0): {t5 - t4:.6f} s")
+print(f"[osm_roads] Invalid before: {invalid_before}, after: {invalid_after}")
 
 # ============================
-#  3. INDEKS PRZESTRZENNY 4326
+# 4. TRANSFORMACJA CRS → 2180
 # ============================
 
-t30 = time.perf_counter()
-sindex_4326 = gdf_4326.sindex
-t31 = time.perf_counter()
+t6 = time.perf_counter()
 
-print(f"[osm_roads] Indeks Rtree (4326): {t31 - t30:.6f} s")
-
-# ============================
-#  4. TRANSFORMACJA DO 2180
-# ============================
-
-t40 = time.perf_counter()
 gdf_2180 = gdf_4326.to_crs(CRS_2180)
-t41 = time.perf_counter()
 
-print(f"[osm_roads] Transformacja 4326 → 2180: {t41 - t40:.6f} s")
+t7 = time.perf_counter()
+print(f"[osm_roads] CRS transform 4326 → 2180: {t7 - t6:.6f} s")
 
 # ============================
-#  5. EKSPORT CSV
+# 5a. INDEKS RELACYJNY (GeoPandas sindex)
 # ============================
 
-# --- Export 4326 ---
-t60 = time.perf_counter()
+t8 = time.perf_counter()
+_ = gdf_2180.sindex
+t9 = time.perf_counter()
 
-gdf_4326["geom_line_4326"] = gdf_4326.geometry.to_wkt(rounding_precision=16)
-gdf_4326.drop(columns=["geometry"], inplace=True)
-gdf_4326.to_csv(OUTPUT_4326, index=False)
+print(f"[osm_roads] GeoPandas sindex (Rtree): {t9 - t8:.6f} s")
 
-t61 = time.perf_counter()
-print(f"[osm_roads] Eksport 4326 → CSV: {t61 - t60:.6f} s")
+# ============================
+# 5b. INDEKS NEAREST (STRtree)
+# ============================
 
-# --- Export 2180 ---
-t70 = time.perf_counter()
+t10 = time.perf_counter()
 
-gdf_2180["geom_line_2180"] = gdf_2180.geometry.to_wkt(rounding_precision=16)
-gdf_2180.drop(columns=["geometry", "geom_line_4326"], errors="ignore", inplace=True)
-gdf_2180.to_csv(OUTPUT_2180, index=False)
+road_geoms = list(gdf_2180.geometry.values)
+road_strtree = STRtree(road_geoms)
 
-t71 = time.perf_counter()
-print(f"[osm_roads] Eksport 2180 → CSV: {t71 - t70:.6f} s")
+t11 = time.perf_counter()
+print(f"[osm_roads] STRtree (nearest-neighbor): {t11 - t10:.6f} s")
+
+# ============================
+# 6. EKSPORT EPSG:2180
+# ============================
+
+t12 = time.perf_counter()
+
+out = gdf_2180.copy()
+out["geom_line_2180"] = out.geometry.to_wkt(rounding_precision=16)
+out.drop(columns=["geometry"], inplace=True)
+
+out.to_csv(OUTPUT_CSV, index=False)
+
+t13 = time.perf_counter()
+print(f"[osm_roads] Export CSV (2180): {t13 - t12:.6f} s")
+
+print("\n[osm_roads] Preprocessing zakończony poprawnie.")

@@ -6,8 +6,7 @@ con.execute("INSTALL spatial; LOAD spatial;")
 
 query = """
 CREATE OR REPLACE TABLE geo_polska_buffer_intersection AS
-WITH
-woj AS (
+WITH woj AS (
     SELECT
         id    AS woj_id,
         nazwa AS woj_name,
@@ -21,23 +20,16 @@ buf AS (
         ST_Buffer(geom_2180, 5000) AS geom_buffer_5km
     FROM geo_polska
     WHERE typ = 'gmina'
-),
-intersections AS (
-    SELECT
-        b.gmina_id,
-        w.woj_id,
-        ST_Intersection(b.geom_buffer_5km, w.geom_2180) AS geom_intersection
-    FROM buf b
-    JOIN woj w
-        ON ST_Intersects(b.geom_buffer_5km, w.geom_2180)
 )
 SELECT
-    gmina_id,
-    woj_id,
-    ST_Area(geom_intersection) AS area_intersection_m2,
-    geom_intersection
-FROM intersections
-WHERE geom_intersection IS NOT NULL;
+    b.gmina_id,
+    w.woj_id,
+    ST_Area(ST_Intersection(b.geom_buffer_5km, w.geom_2180)) AS area_intersection_m2,
+    ST_Intersection(b.geom_buffer_5km, w.geom_2180)          AS geom_intersection
+FROM buf b
+JOIN woj w
+    ON ST_Intersects(b.geom_buffer_5km, w.geom_2180)
+WHERE ST_Intersection(b.geom_buffer_5km, w.geom_2180) IS NOT NULL;
 """
 
 start = time.perf_counter()

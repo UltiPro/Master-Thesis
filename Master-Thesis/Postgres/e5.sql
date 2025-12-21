@@ -8,6 +8,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.geo_polska_geom_features;
 
+EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.geo_polska_geom_features AS
 SELECT
     id,
@@ -16,5 +17,4 @@ SELECT
     ST_Area(geom_2180)      AS area_m2,
     ST_Perimeter(geom_2180) AS perimeter_m,
     ST_Centroid(geom_2180)  AS centroid_2180
-FROM mgr_2025.geo_polska
-ORDER BY id;
+FROM mgr_2025.geo_polska;

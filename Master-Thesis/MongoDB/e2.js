@@ -19,7 +19,6 @@ categories.forEach(cat => {
                 distanceField: "dist",
                 spherical: true,
                 query: { category: cat },
-                // brak maxDistance → nie ograniczamy
             }
         },
         { $limit: 1 }

@@ -6,7 +6,6 @@ WITH road_lengths AS (
         ST_LENGTH(geom_line_4326) AS length_m
     FROM `mgr-2025.mgr_2025.osm_roads`
 )
-
 SELECT
     highway,
     id AS road_id,
@@ -15,5 +14,4 @@ FROM road_lengths
 QUALIFY ROW_NUMBER() OVER (
     PARTITION BY highway
     ORDER BY length_m DESC
-) = 1
-ORDER BY highway;
+) = 1;

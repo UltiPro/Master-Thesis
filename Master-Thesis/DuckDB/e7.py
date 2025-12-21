@@ -6,27 +6,18 @@ con.execute("INSTALL spatial; LOAD spatial;")
 
 query = """
 CREATE OR REPLACE TABLE feat_poi_per_admin AS
-WITH admin_units AS (
-    SELECT 
-        id    AS admin_id,
-        nazwa AS admin_name,
-        typ   AS admin_type,
-        geom_2180
-    FROM geo_polska
-    WHERE typ IN ('kraj', 'województwo', 'powiat', 'gmina')
-)
 SELECT
-    a.admin_id,
-    a.admin_name,
-    a.admin_type,
+    a.id,
+    a.nazwa,
+    a.typ,
     COUNT(p.id) AS poi_count
-FROM admin_units a
+FROM geo_polska a
 LEFT JOIN dat_poi p
     ON ST_Contains(a.geom_2180, p.geom_point_2180)
 GROUP BY 
-    a.admin_id, 
-    a.admin_name, 
-    a.admin_type;
+    a.id,
+    a.nazwa,
+    a.typ;
 """
 
 start = time.perf_counter()

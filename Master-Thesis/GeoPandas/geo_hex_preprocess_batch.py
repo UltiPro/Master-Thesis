@@ -3,61 +3,56 @@ import time
 import gc
 
 import pandas as pd
+import numpy as np
 import geopandas as gpd
 from shapely import wkt
 from tqdm import tqdm
-import psutil
+from shapely.strtree import STRtree
 
-# ============================
-#  KONFIGURACJA
-# ============================
+# =====================================================
+# KONFIGURACJA
+# =====================================================
 
-INPUT_CSV = r"C:\\Users\\Ultip\\Desktop\\mgr\\geo_hex.csv"
-OUTPUT_4326 = r"C:\\Users\\Ultip\\Desktop\\mgr\\pyt\\geo_hex_4326_py.csv"
-OUTPUT_2180 = r"C:\\Users\\Ultip\\Desktop\\mgr\\pyt\\geo_hex_2180_py.csv"
+INPUT_CSV = r"C:\Users\Ultip\Desktop\mgr\geo_hex.csv"
+OUTPUT_2180 = r"C:\Users\Ultip\Desktop\mgr\pyt\geo_hex_2180_py.csv"
 
 CRS_4326 = "EPSG:4326"
 CRS_2180 = "EPSG:2180"
 
 BATCH_SIZE = 10_000
 
-# usuwamy stare outputy
-for path in (OUTPUT_4326, OUTPUT_2180):
-    if os.path.exists(path):
-        os.remove(path)
+# =====================================================
+# PRZYGOTOWANIE
+# =====================================================
 
-# ============================
-#  POMOCNICZE: RAM
-# ============================
+if os.path.exists(OUTPUT_2180):
+    os.remove(OUTPUT_2180)
 
 
-def get_ram_mb():
-    process = psutil.Process(os.getpid())
-    return process.memory_info().rss / (1024**2)
+def now():
+    return time.perf_counter()
 
 
-# ============================
-#  SUMARYCZNE LICZNIKI CZASU
-# ============================
+# =====================================================
+# LICZNIKI CZASU
+# =====================================================
 
-total_import = 0.0
-total_wkt = 0.0
-total_makevalid = 0.0
-total_index = 0.0
-total_crs = 0.0
-total_export_4326 = 0.0
-total_export_2180 = 0.0
+t_csv = 0.0
+t_wkt = 0.0
+t_makevalid = 0.0
+t_crs = 0.0
+t_index = 0.0
+t_export = 0.0
 
-# ============================
-#  STRUMIENIOWE PRZETWARZANIE
-# ============================
+t_wall_start = now()
 
-t_total_start = time.perf_counter()
+# =====================================================
+# 1. WCZYTANIE CAŁEJ CSV
+# =====================================================
 
-reader_start = time.perf_counter()
-reader = pd.read_csv(
+t0 = now()
+df = pd.read_csv(
     INPUT_CSV,
-    chunksize=BATCH_SIZE,
     dtype={
         "hex_0125": "Int64",
         "teryt7": "string",
@@ -67,94 +62,103 @@ reader = pd.read_csv(
         "geom_4326": "string",
     },
 )
-reader_end = time.perf_counter()
-total_import += reader_end - reader_start
+t_csv = now() - t0
+print(f"[1] Import CSV: {t_csv:.2f} s | N={len(df)}")
 
-header_4326 = False
-header_2180 = False
+# =====================================================
+# 2. WKT → GEOMETRY + GEODATAFRAME (CAŁOŚĆ)
+# =====================================================
 
-print(f"[geo_hex] Start streamingowego przetwarzania...")
+t0 = now()
+df = df.dropna(subset=["geom_4326"]).copy()
+df["geometry"] = df["geom_4326"].apply(wkt.loads)
+gdf_4326 = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_4326)
+t_wkt = now() - t0
+print(f"[2] WKT → geometry + GeoDataFrame: {t_wkt:.2f} s")
 
-for batch_idx, chunk in enumerate(tqdm(reader)):
+# =====================================================
+# 3. MAKE VALID – BATCHOWO
+# =====================================================
 
-    # ====== WKT → geometry ======
-    t0 = time.perf_counter()
+t0 = now()
 
-    chunk = chunk.dropna(subset=["geom_4326"]).copy()
-    gdf_4326 = gpd.GeoDataFrame(chunk, geometry=chunk["geom_4326"].apply(wkt.loads), crs=CRS_4326)
-
-    t1 = time.perf_counter()
-    total_wkt += t1 - t0
-
-    # ====== MakeValid ======
-    t0 = time.perf_counter()
-
-    mask = ~gdf_4326.geometry.is_valid
+for i in tqdm(range(0, len(gdf_4326), BATCH_SIZE), desc="MakeValid"):
+    batch = gdf_4326.iloc[i : i + BATCH_SIZE]
+    mask = ~batch.geometry.is_valid
     if mask.any():
-        gdf_4326.loc[mask, "geometry"] = gdf_4326.loc[mask, "geometry"].buffer(0)
+        gdf_4326.loc[batch.index[mask], "geometry"] = batch.loc[mask, "geometry"].buffer(0)
 
-    t1 = time.perf_counter()
-    total_makevalid += t1 - t0
+t_makevalid = now() - t0
+print(f"[3] MakeValid (buffer 0): {t_makevalid:.2f} s")
 
-    # ====== Export 4326 ======
-    t0 = time.perf_counter()
+# =====================================================
+# 4. TRANSFORMACJA CRS 4326 → 2180 – BATCHOWO
+# =====================================================
 
-    out = gdf_4326.copy()
-    out["geom_4326"] = out.geometry.to_wkt()
-    out.drop(columns=["geometry"], inplace=True)
+t0 = now()
 
-    out.to_csv(
-        OUTPUT_4326,
-        mode="a",
-        header=(not header_4326),
-        index=False,
-    )
-    header_4326 = True
+gdf_2180_parts = []
 
-    t1 = time.perf_counter()
-    total_export_4326 += t1 - t0
+for i in tqdm(range(0, len(gdf_4326), BATCH_SIZE), desc="CRS transform"):
+    part = gdf_4326.iloc[i : i + BATCH_SIZE].to_crs(CRS_2180)
+    gdf_2180_parts.append(part)
 
-    # ====== Transformacja CRS ======
-    t0 = time.perf_counter()
-    gdf_2180 = gdf_4326.to_crs(CRS_2180)
-    t1 = time.perf_counter()
-    total_crs += t1 - t0
+gdf_2180 = pd.concat(gdf_2180_parts, ignore_index=True)
 
-    # ====== Export 2180 ======
-    t0 = time.perf_counter()
+t_crs = now() - t0
+print(f"[4] Transformacja CRS 4326 → 2180: {t_crs:.2f} s")
 
-    out2 = gdf_2180.copy()
-    out2["geom_2180"] = out2.geometry.to_wkt()
-    out2.drop(columns=["geometry", "geom_4326"], inplace=True)
+# Zwalniamy 4326
+del gdf_4326, gdf_2180_parts
+gc.collect()
 
-    out2.to_csv(
+# =====================================================
+# 5. INDEKSY PRZESTRZENNE (CAŁOŚĆ, EPSG:2180)
+# =====================================================
+
+# 5a. GeoPandas sindex (Rtree / STRtree backend)
+t0 = now()
+sindex_gp = gdf_2180.sindex
+t_index_gp = now() - t0
+print(f"[5a] GeoPandas sindex (EPSG:2180): {t_index_gp:.2f} s")
+
+# 5b. Jawny STRtree (Shapely)
+t0 = now()
+geom_list = list(gdf_2180.geometry.values)
+strtree = STRtree(geom_list)
+t_index_str = now() - t0
+print(f"[5b] Shapely STRtree (EPSG:2180): {t_index_str:.2f} s")
+
+
+# =====================================================
+# 6. EKSPORT CSV – BATCHOWO
+# =====================================================
+
+t0 = now()
+header = False
+
+for i in tqdm(range(0, len(gdf_2180), BATCH_SIZE), desc="Export CSV"):
+    batch = gdf_2180.iloc[i : i + BATCH_SIZE].copy()
+    batch["geom_2180"] = batch.geometry.to_wkt()
+    batch.drop(columns=["geometry", "geom_4326"], inplace=True)
+
+    batch.to_csv(
         OUTPUT_2180,
         mode="a",
-        header=(not header_2180),
+        header=not header,
         index=False,
     )
-    header_2180 = True
+    header = True
 
-    t1 = time.perf_counter()
-    total_export_2180 += t1 - t0
+t_export = now() - t0
+print(f"[6] Eksport CSV (2180): {t_export:.2f} s")
 
-    # ====== cleanup ======
-    del gdf_4326, gdf_2180, out, out2, chunk
-    gc.collect()
+# =====================================================
+# PODSUMOWANIE
+# =====================================================
 
-t_total_end = time.perf_counter()
+t_wall = now() - t_wall_start
 
-# ============================
-#  PODSUMOWANIE
-# ============================
-
-print("\n==================== PODSUMOWANIE CZASÓW ====================")
-print(f"Import CSV:                {total_import:.2f} s")
-print(f"WKT → geometry:            {total_wkt:.2f} s")
-print(f"MakeValid:                 {total_makevalid:.2f} s")
-print(f"Transformacja CRS (2180):  {total_crs:.2f} s")
-print(f"Eksport 4326:              {total_export_4326:.2f} s")
-print(f"Eksport 2180:              {total_export_2180:.2f} s")
-print("--------------------------------------------------------------")
-print(f"Łączny czas (wall time):   {t_total_end - t_total_start:.2f} s")
-print("==============================================================")
+print("------------------------------------------------------")
+print(f"Łączny wall time:         {t_wall:.2f} s")
+print("======================================================")

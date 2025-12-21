@@ -6,6 +6,7 @@
 
 DROP TABLE IF EXISTS mgr_2025.feat_poi_multibuffer;
 
+EXPLAIN (ANALYZE, BUFFERS)
 -- Punkt referencyjny (EPSG:2180)
 WITH ref AS (
     SELECT ST_Transform(

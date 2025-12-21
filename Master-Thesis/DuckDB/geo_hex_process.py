@@ -107,6 +107,36 @@ results["transform_s"] = time.perf_counter() - start
 print(f"[geo_hex] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
+# 3.5. INDEKSY PRZESTRZENNE
+#     — geo_hex (tylko geometria)
+# ============================================
+
+# --- indeks przestrzenny EPSG:4326 (Polygon / MultiPolygon)
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_geo_hex_geom_4326
+    ON geo_hex
+    USING RTREE (geom_4326);
+"""
+)
+t_4326 = time.perf_counter() - start
+print(f"[geo_hex] Indeks RTREE geom_4326 (EPSG:4326): {t_4326:.3f} s")
+
+
+# --- indeks przestrzenny EPSG:2180 (Polygon / MultiPolygon)
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_geo_hex_geom_2180
+    ON geo_hex
+    USING RTREE (geom_2180);
+"""
+)
+t_2180 = time.perf_counter() - start
+print(f"[geo_hex] Indeks RTREE geom_2180 (EPSG:2180): {t_2180:.3f} s")
+
+# ============================================
 # 4. EKSPORT — tylko geometria 4326
 # ============================================
 

@@ -14,7 +14,6 @@ WITH road_lengths AS (
         highway,
         ST_Length(geom_line_2180) AS length_m
     FROM osm_roads
-    WHERE geom_line_2180 IS NOT NULL
 ),
 ranked AS (
     SELECT
@@ -32,8 +31,7 @@ SELECT
     road_id,
     length_m
 FROM ranked
-WHERE rn = 1
-ORDER BY highway;
+WHERE rn = 1;
 """
 
 start = time.perf_counter()

@@ -1,8 +1,3 @@
-//----------------------------------------------------
-//   FINALNY PREPROCESSING GEOJSON — MONGOSH
-//   Dla Magisterki Patryka Wójtowicza
-//----------------------------------------------------
-
 use mgr_mongo;
 
 //----------------------------------------------------
@@ -26,11 +21,11 @@ function processGeometry(collectionName, geomField) {
                 $set: {
                     [geomField]: {
                         $function: {
-                            body: function(x) {
+                            body: function (x) {
                                 try { return JSON.parse(x); }
-                                catch(e) { return null; }
+                                catch (e) { return null; }
                             },
-                            args: [ `$${geomField}` ],
+                            args: [`$${geomField}`],
                             lang: "js"
                         }
                     }
@@ -42,21 +37,20 @@ function processGeometry(collectionName, geomField) {
     var end = new Date();
     print(collectionName, "--- czas konwersji JSON → Object (ms):", end - start);
 
-
     // -------------------------
-    // 2) Tworzenie indeksu 2dsphere
+    // 2) Indeks przestrzenny 2dsphere
     // -------------------------
     start = new Date();
     db[collectionName].createIndex({ [geomField]: "2dsphere" });
     end = new Date();
 
-    print(collectionName, "--- czas tworzenia indeksu (ms):", end - start);
+    print(collectionName, "--- czas tworzenia indeksu 2dsphere (ms):", end - start);
 
     print("\n✔ Zakończono:", collectionName, "\n");
 }
 
 //----------------------------------------------------
-// URUCHOMIENIE FUNKCJI DLA 4 TABEL
+// PREPROCESSING GEOMETRII
 //----------------------------------------------------
 
 // dat_poi – Point
@@ -71,4 +65,32 @@ processGeometry("osm_roads", "geom_line_4326");
 // geo_hex – MultiPolygon
 processGeometry("geo_hex", "geom_4326");
 
-print("\n=== PREPROCESSING ZAKOŃCZONY DLA WSZYSTKICH TABEL ===\n");
+//----------------------------------------------------
+// INDEKSY ATRYBUTOWE (DODATKOWE)
+//----------------------------------------------------
+
+print("\n===========================================");
+print("   TWORZENIE INDEKSÓW ATRYBUTOWYCH");
+print("===========================================\n");
+
+var start, end;
+
+// dat_poi → category
+start = new Date();
+db.dat_poi.createIndex({ category: 1 });
+end = new Date();
+print("dat_poi --- indeks category (ms):", end - start);
+
+// geo_polska → typ
+start = new Date();
+db.geo_polska.createIndex({ typ: 1 });
+end = new Date();
+print("geo_polska --- indeks typ (ms):", end - start);
+
+// osm_roads → highway
+start = new Date();
+db.osm_roads.createIndex({ highway: 1 });
+end = new Date();
+print("osm_roads --- indeks highway (ms):", end - start);
+
+print("\n=== PREPROCESSING + INDEKSY ZAKOŃCZONE ===\n");

@@ -1,9 +1,7 @@
 import os
 import time
-import numpy as np
 import pandas as pd
 import geopandas as gpd
-from shapely import wkt
 from shapely.strtree import STRtree
 
 # =========================================
@@ -17,10 +15,7 @@ OUT_DIR = r"C:\Users\Ultip\Desktop\mgr\experiments"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 CRS_2180 = "EPSG:2180"
-
-# Domyślny limit hexów (jak w SQL było 1000)
-HEX_LIMIT_E16 = 1000  # możesz zmieniać (1000, 10000, 50000, ...)
-
+HEX_LIMIT_E16 = 1000000
 
 # =========================================
 # WCZYTYWANIE DANYCH
@@ -28,7 +23,7 @@ HEX_LIMIT_E16 = 1000  # możesz zmieniać (1000, 10000, 50000, ...)
 
 
 def load_woj(path):
-    print("[LOAD] geo_polska (województwa)")
+    print("[LOAD] geo_polska → województwa")
 
     t0 = time.perf_counter()
     df = pd.read_csv(
@@ -47,157 +42,109 @@ def load_woj(path):
     )
     t1 = time.perf_counter()
 
-    df["geometry"] = df["geom_2180"].apply(wkt.loads)
-    gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_2180)
+    geom = gpd.GeoSeries.from_wkt(df["geom_2180"], crs=CRS_2180)
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom_2180"]), geometry=geom)
 
-    # filtrujemy tylko województwa
-    woj = gdf[gdf["typ"] == "województwo"].copy().reset_index(drop=True)
-
+    woj = gdf[gdf["typ"] == "województwo"].reset_index(drop=True)
     t2 = time.perf_counter()
 
-    print(f"[WOJ] CSV={t1 - t0:.4f}s  WKT={t2 - t1:.4f}s  count={len(woj)}")
+    print(f"[WOJ] CSV: {t1 - t0:.6f}s | WKT: {t2 - t1:.6f}s | N={len(woj)}")
     return woj
 
 
 def load_hex_limited(path, limit):
-    print(f"[LOAD] geo_hex (limit={limit})")
+    print(f"[LOAD] geo_hex ORDER BY hex_0125 LIMIT {limit}")
 
     t0 = time.perf_counter()
-    # zakładamy, że plik jest już posortowany po hex_0125
     df = pd.read_csv(
         path,
-        dtype={
-            "hex_0125": "Int64",
-            "geom_2180": "string",
-        },
-        nrows=limit,
+        dtype={"hex_0125": "Int64", "geom_2180": "string"},
     )
+
+    # sortowanie NUMERYCZNE – zgodne z PG
+    df = df.sort_values("hex_0125", kind="mergesort").head(limit).reset_index(drop=True)
     t1 = time.perf_counter()
 
-    df["geometry"] = df["geom_2180"].apply(wkt.loads)
-    gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_2180)
-
-    # dodatkowo sortujemy po hex_0125 dla zgodności z:
-    # ORDER BY hex_0125 LIMIT N
-    gdf = gdf.sort_values("hex_0125").reset_index(drop=True)
-
+    geom = gpd.GeoSeries.from_wkt(df["geom_2180"], crs=CRS_2180)
+    gdf = gpd.GeoDataFrame(df.drop(columns=["geom_2180"]), geometry=geom)
     t2 = time.perf_counter()
 
-    print(f"[HEX] CSV={t1 - t0:.4f}s  WKT={t2 - t1:.4f}s  count={len(gdf)}")
+    print(f"[HEX] CSV+SORT+LIMIT: {t1 - t0:.6f}s | WKT: {t2 - t1:.6f}s | N={len(gdf)}")
     return gdf
 
 
 # =========================================
-# EKSPERYMENT 16 – geo_hex_woj_join
+# EKSPERYMENT 16
 # =========================================
 
 
 def experiment_16_geo_hex_woj_join(woj_gdf, hex_gdf):
-    """
-    Odpowiednik SQL:
-
-    WITH woj AS (
-        SELECT id AS woj_id, nazwa AS woj_name, geom_2180
-        FROM geo_polska
-        WHERE typ = 'województwo'
-    ),
-    hex_sample AS (
-        SELECT hex_0125 AS hex_id, geom_2180
-        FROM geo_hex
-        ORDER BY hex_0125
-        LIMIT 1000
-    )
-    SELECT
-        h.hex_id,
-        w.woj_id,
-        ST_Area(h.geom_2180) AS area_hex_m2,
-        ST_Area(ST_Intersection(h.geom_2180, w.geom_2180)) AS area_intersection_m2
-    FROM hex_sample h
-    JOIN woj w
-        ON ST_Intersects(h.geom_2180, w.geom_2180)
-    WHERE ST_Intersection(h.geom_2180, w.geom_2180) IS NOT NULL;
-    """
-
-    print("\n==================== EKSPERYMENT 16 – geo_hex_woj_join ====================")
+    print("\n==================== EKSPERYMENT 16 ====================")
+    print("[E16] Spatial join: hex → województwo")
+    print("[E16] ST_Intersects + ST_Intersection")
+    print("[E16] Indeks przestrzenny: STRtree po stronie województw")
 
     # -----------------------------------------
-    # STRtree po województwach
+    # STRtree (POZA czasem eksperymentu)
     # -----------------------------------------
     t0 = time.perf_counter()
     woj_geoms = list(woj_gdf.geometry.values)
-    tree = STRtree(woj_geoms)
-    geom_to_index = {geom: idx for idx, geom in enumerate(woj_geoms)}
+    woj_tree = STRtree(woj_geoms)
     t1 = time.perf_counter()
-
-    print(f"[E16] STRtree(woj): {t1 - t0:.4f}s")
+    print(f"[E16] STRtree(woj) build: {t1 - t0:.6f}s")
 
     rows = []
+    bbox_counts = []
 
     # -----------------------------------------
-    # Pętla po hexach
+    # Właściwe obliczenia
     # -----------------------------------------
     t2 = time.perf_counter()
 
-    for _, h in hex_gdf.iterrows():
-        hex_id = int(h["hex_0125"])
+    for h in hex_gdf.itertuples(index=False):
+        hex_id = int(h.hex_0125)
         hex_geom = h.geometry
-
-        # ST_Area(h.geom_2180)
         area_hex = float(hex_geom.area)
 
-        # kandydaci województw przez STRtree (bbox)
-        candidates = tree.query(hex_geom)
+        candidate_idxs = woj_tree.query(hex_geom)
+        bbox_counts.append(len(candidate_idxs))
 
-        if len(candidates) == 0:
-            # brak przecięć → w SQL w ogóle nie ma rekordu, więc też pomijamy
+        if candidate_idxs.size == 0:
             continue
 
-        candidate_positions = []
-        for c in candidates:
-            if isinstance(c, (int, np.integer)):
-                candidate_positions.append(int(c))
-            else:
-                idx = geom_to_index.get(c, None)
-                if idx is not None:
-                    candidate_positions.append(idx)
+        for idx in candidate_idxs:
+            w = woj_gdf.iloc[int(idx)]
 
-        if not candidate_positions:
-            continue
-
-        woj_subset = woj_gdf.iloc[candidate_positions]
-
-        # dokładny ST_Intersects + ST_Intersection
-        for _, w in woj_subset.iterrows():
-            geom_w = w.geometry
-
-            if not hex_geom.intersects(geom_w):
+            if not hex_geom.intersects(w.geometry):
                 continue
 
-            inter = hex_geom.intersection(geom_w)
+            inter = hex_geom.intersection(w.geometry)
             if inter.is_empty:
                 continue
-
-            area_inter = float(inter.area)
 
             rows.append(
                 {
                     "hex_id": hex_id,
-                    "woj_id": int(w["id"]),
+                    "woj_id": int(w.id),
                     "area_hex_m2": area_hex,
-                    "area_intersection_m2": area_inter,
+                    "area_intersection_m2": float(inter.area),
                 }
             )
 
     t3 = time.perf_counter()
-    print(f"[E16] Czas obliczeń: {t3 - t2:.4f}s")
+
+    print(
+        f"[E16] BBox candidates – min: {min(bbox_counts)}, "
+        f"max: {max(bbox_counts)}, "
+        f"avg: {sum(bbox_counts)/len(bbox_counts):.2f}"
+    )
+    print(f"[E16] Czas eksperymentu: {t3 - t2:.6f}s")
 
     # -----------------------------------------
     # Zapis wyników
     # -----------------------------------------
-    if rows:
-        out = pd.DataFrame(rows).sort_values(["hex_id", "woj_id"])
-    else:
-        out = pd.DataFrame(columns=["hex_id", "woj_id", "area_hex_m2", "area_intersection_m2"])
+    out = pd.DataFrame(rows)
+    out = out.sort_values(["hex_id", "woj_id"])
 
     out_path = os.path.join(OUT_DIR, "geo_hex_woj_join_py.csv")
     out.to_csv(out_path, index=False)
@@ -209,7 +156,8 @@ def experiment_16_geo_hex_woj_join(woj_gdf, hex_gdf):
 # =========================================
 
 if __name__ == "__main__":
-    print("=== ŁADOWANIE DANYCH DO E16 ===")
+    print("=== ŁADOWANIE DANYCH DO EKSPERYMENTU 16 ===")
+
     woj = load_woj(PATH_POLSKA)
     hex_sample = load_hex_limited(PATH_HEX, HEX_LIMIT_E16)
 

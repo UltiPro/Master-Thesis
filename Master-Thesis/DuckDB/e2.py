@@ -23,21 +23,20 @@ nearest AS (
         c.category,
         nn.id AS nearest_poi_id,
         nn.dist_m AS distance_m
-    FROM cats c,
-         ref r,
-         LATERAL (
-             SELECT
-                 id,
-                 ST_Distance(geom_point_2180, r.geom) AS dist_m
-             FROM dat_poi
-             WHERE category = c.category
-             ORDER BY dist_m
-             LIMIT 1
-         ) nn
+    FROM cats c
+    CROSS JOIN ref r
+    CROSS JOIN LATERAL (
+        SELECT
+            id,
+            ST_Distance(geom_point_2180, r.geom) AS dist_m
+        FROM dat_poi
+        WHERE category = c.category
+        ORDER BY dist_m
+        LIMIT 1
+    ) nn
 )
 SELECT *
-FROM nearest
-ORDER BY category;
+FROM nearest;
 """
 
 start = time.perf_counter()

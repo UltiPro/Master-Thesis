@@ -109,6 +109,47 @@ results["transform_s"] = time.perf_counter() - start
 print(f"[geo_polska] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
+# 3.5. INDEKSY (SPATIAL + ATRYBUTOWY)
+#     — geo_polska
+# ============================================
+
+# --- indeks przestrzenny EPSG:4326 (MultiPolygon)
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_geo_polska_geom_4326
+    ON geo_polska
+    USING RTREE (geom_4326);
+"""
+)
+t_4326 = time.perf_counter() - start
+print(f"[geo_polska] Indeks RTREE geom_4326 (EPSG:4326): {t_4326:.3f} s")
+
+# --- indeks przestrzenny EPSG:2180 (MultiPolygon)
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_geo_polska_geom_2180
+    ON geo_polska
+    USING RTREE (geom_2180);
+"""
+)
+t_2180 = time.perf_counter() - start
+print(f"[geo_polska] Indeks RTREE geom_2180 (EPSG:2180): {t_2180:.3f} s")
+
+
+# --- indeks atrybutowy typ
+start = time.perf_counter()
+con.execute(
+    """
+    CREATE INDEX idx_geo_polska_typ
+    ON geo_polska (typ);
+"""
+)
+t_typ = time.perf_counter() - start
+print(f"[geo_polska] Indeks B-tree typ: {t_typ:.3f} s")
+
+# ============================================
 # 4. EKSPORT DO CSV — tylko geometria 4326
 # ============================================
 
