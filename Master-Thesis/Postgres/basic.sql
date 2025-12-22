@@ -126,6 +126,11 @@ CREATE INDEX idx_dat_poi_geom_point_2180
 ON mgr_2025.dat_poi
 USING GIST (geom_point_2180);
 
+-- Indeks przestrzenny dla kolumny geom_point_4326
+CREATE INDEX idx_dat_poi_geom_point_4326
+ON mgr_2025.dat_poi
+USING GIST (geom_point_4326);
+
 -- Eksport tabeli dat_poi do CSV z geometrią w WKT
 COPY (
     SELECT
@@ -181,10 +186,15 @@ EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_polska
 SET geom_2180 = ST_Transform(geom_4326, 2180);
 
--- Indeks przestrzenny dla kolumny geom_4326
+-- Indeks przestrzenny dla kolumny geom_2180
 CREATE INDEX idx_geo_polska_geom_2180
 ON mgr_2025.geo_polska
 USING GIST (geom_2180);
+
+-- Indeks przestrzenny dla kolumny geom_4326
+CREATE INDEX idx_geo_polska_geom_4326
+ON mgr_2025.geo_polska
+USING GIST (geom_4326);
 
 -- Eksport tabeli dat_poi do CSV z geometrią w WKT
 COPY (
@@ -236,10 +246,15 @@ EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.osm_roads
 SET geom_line_2180 = ST_Transform(geom_line_4326, 2180);
 
--- Indeks przestrzenny dla kolumny geom_line_4326
+-- Indeks przestrzenny dla kolumny geom_line_2180
 CREATE INDEX idx_osm_roads_geom_line_2180
 ON mgr_2025.osm_roads
 USING GIST (geom_line_2180);
+
+-- Indeks przestrzenny dla kolumny geom_line_4326
+CREATE INDEX idx_osm_roads_geom_line_4326
+ON mgr_2025.osm_roads
+USING GIST (geom_line_4326);
 
 -- Eksport tabeli osm_roads do CSV z geometrią w WKT
 COPY (
@@ -288,10 +303,15 @@ EXPLAIN (ANALYZE, BUFFERS)
 UPDATE mgr_2025.geo_hex
 SET geom_2180 = ST_Transform(geom_4326, 2180);
 
--- Indeks przestrzenny dla kolumny geom_4326
+-- Indeks przestrzenny dla kolumny geom_2180
 CREATE INDEX idx_geo_hex_geom_2180
 ON mgr_2025.geo_hex
 USING GIST (geom_2180);
+
+-- Indeks przestrzenny dla kolumny geom_4326
+CREATE INDEX idx_geo_hex_geom_4326
+ON mgr_2025.geo_hex
+USING GIST (geom_4326);
 
 -- Eksport tabeli geo_hex do CSV z geometrią w WKT
 COPY (

@@ -14,7 +14,7 @@ SELECT
     id,
     nazwa,
     typ,
-    ST_Area(geom_4326_geog)      AS area_m2,
-    ST_Perimeter(geom_4326_geog) AS perimeter_m,
-    ST_Centroid(geom_4326_geog)  AS centroid_4326
+    ST_Area(geom_4326_geog)        AS area_m2,
+    ST_Perimeter(geom_4326_geog)   AS perimeter_m,
+    ST_Centroid(geom_4326_geog)    AS centroid_4326
 FROM mgr_2025.geo_polska;

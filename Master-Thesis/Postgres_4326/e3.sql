@@ -23,13 +23,33 @@ cats AS (
 counts AS (
     SELECT
         c.category,
-        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r WHERE p.category = c.category AND ST_DWithin(p.geom_point_4326_geog, r.geog, 50))       AS cnt_50m,
-        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r WHERE p.category = c.category AND ST_DWithin(p.geom_point_4326_geog, r.geog, 100))      AS cnt_100m,
-        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r WHERE p.category = c.category AND ST_DWithin(p.geom_point_4326_geog, r.geog, 500))      AS cnt_500m,
-        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r WHERE p.category = c.category AND ST_DWithin(p.geom_point_4326_geog, r.geog, 1000))     AS cnt_1000m,
-        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r WHERE p.category = c.category AND ST_DWithin(p.geom_point_4326_geog, r.geog, 5000))     AS cnt_5000m,
-        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r WHERE p.category = c.category AND ST_DWithin(p.geom_point_4326_geog, r.geog, 50000))    AS cnt_50000m,
-        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r WHERE p.category = c.category AND ST_DWithin(p.geom_point_4326_geog, r.geog, 100000))   AS cnt_100000m
+        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r
+         WHERE p.category = c.category
+           AND ST_DWithin(p.geom_point_4326_geog, r.geog, 50))       AS cnt_50m,
+
+        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r
+         WHERE p.category = c.category
+           AND ST_DWithin(p.geom_point_4326_geog, r.geog, 100))      AS cnt_100m,
+
+        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r
+         WHERE p.category = c.category
+           AND ST_DWithin(p.geom_point_4326_geog, r.geog, 500))      AS cnt_500m,
+
+        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r
+         WHERE p.category = c.category
+           AND ST_DWithin(p.geom_point_4326_geog, r.geog, 1000))     AS cnt_1000m,
+
+        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r
+         WHERE p.category = c.category
+           AND ST_DWithin(p.geom_point_4326_geog, r.geog, 5000))     AS cnt_5000m,
+
+        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r
+         WHERE p.category = c.category
+           AND ST_DWithin(p.geom_point_4326_geog, r.geog, 50000))    AS cnt_50000m,
+
+        (SELECT COUNT(*) FROM mgr_2025.dat_poi p, ref r
+         WHERE p.category = c.category
+           AND ST_DWithin(p.geom_point_4326_geog, r.geog, 100000))   AS cnt_100000m
     FROM cats c
 )
 

@@ -56,10 +56,10 @@ poi_subset AS (
 SELECT
     p.id AS poi_id,
 
-    ST_Distance(p.geom_point_4326_geog, g.boundary_geom::geography)  AS dist_gmina_m,
-    ST_Distance(p.geom_point_4326_geog, pw.boundary_geom::geography) AS dist_powiat_m,
-    ST_Distance(p.geom_point_4326_geog, w.boundary_geom::geography)  AS dist_woj_m,
-    ST_Distance(p.geom_point_4326_geog, k.boundary_geom::geography)  AS dist_kraj_m
+    ST_Distance(p.geom_point_4326_geog, g.boundary_geom::geography)  AS dist_gmina,
+    ST_Distance(p.geom_point_4326_geog, pw.boundary_geom::geography) AS dist_powiat,
+    ST_Distance(p.geom_point_4326_geog, w.boundary_geom::geography)  AS dist_woj,
+    ST_Distance(p.geom_point_4326_geog, k.boundary_geom::geography)  AS dist_kraj
 
 INTO mgr_2025.feat_poi_border
 FROM poi_subset p

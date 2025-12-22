@@ -21,8 +21,8 @@ cats AS (
 nearest AS (
     SELECT 
         c.category,
-        nn.id                     AS nearest_poi_id,
-        nn.dist                   AS distance_m
+        nn.id   AS nearest_poi_id,
+        nn.dist AS distance_m
     FROM cats c
     CROSS JOIN ref r
     CROSS JOIN LATERAL (

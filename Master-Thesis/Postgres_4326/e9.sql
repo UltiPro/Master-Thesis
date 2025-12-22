@@ -8,8 +8,6 @@ EXPLAIN (ANALYZE, BUFFERS)
 CREATE TABLE mgr_2025.feat_road_avg_length AS
 SELECT
     highway,
-    AVG(
-        ST_Length(geom_line_4326::geography)
-    ) AS avg_length_m
+    AVG(ST_Length(geom_line_4326_geog)) AS avg_length_m
 FROM mgr_2025.osm_roads
 GROUP BY highway;
