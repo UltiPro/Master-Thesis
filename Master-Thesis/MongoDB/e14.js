@@ -30,5 +30,5 @@ hexes.forEach((h, i) => {
 
 var end = new Date();
 
-print("\nEksperyment 14 — czas całkowity (ms):", end - start);
+print("\nEksperyment 14 - czas całkowity (ms):", end - start);
 print("Wyniki zapisano w kolekcji: vw_hex_poi_counts_mongo");

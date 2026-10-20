@@ -224,7 +224,7 @@ pd.DataFrame(rows).to_csv(
 
 
 # =========================================
-# EKSPERYMENT 3 — Liczba POI per kategoria w promieniach
+# EKSPERYMENT 3 - Liczba POI per kategoria w promieniach
 # =========================================
 
 print("\n==================== EKSPERYMENT 3 (GeoPandas sindex) ====================")

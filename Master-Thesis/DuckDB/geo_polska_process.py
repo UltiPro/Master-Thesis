@@ -110,7 +110,7 @@ print(f"[geo_polska] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
 # 3.5. INDEKSY (SPATIAL + ATRYBUTOWY)
-#     — geo_polska
+#     - geo_polska
 # ============================================
 
 # --- indeks przestrzenny EPSG:4326 (MultiPolygon)
@@ -150,7 +150,7 @@ t_typ = time.perf_counter() - start
 print(f"[geo_polska] Indeks B-tree typ: {t_typ:.3f} s")
 
 # ============================================
-# 4. EKSPORT DO CSV — tylko geometria 4326
+# 4. EKSPORT DO CSV - tylko geometria 4326
 # ============================================
 
 start = time.perf_counter()

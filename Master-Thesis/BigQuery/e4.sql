@@ -32,7 +32,7 @@ poi_subset AS (
 ),
 
 -- ============================
--- GMINA — wybór właściwego polygona i dystansu
+-- GMINA - wybór właściwego polygona i dystansu
 -- ============================
 gmina_match AS (
     SELECT
@@ -95,7 +95,7 @@ woj_best AS (
 ),
 
 -- ============================
--- KRAJ — 1 poligon, brak selekcji
+-- KRAJ - 1 poligon, brak selekcji
 -- ============================
 kraj_best AS (
     SELECT

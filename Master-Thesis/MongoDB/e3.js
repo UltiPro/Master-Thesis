@@ -48,5 +48,5 @@ categories.forEach(cat => {
 
 var end = new Date();
 
-print("CZAS EKSPERYMENTU 3 — JEDNA WARTOŚĆ (ms):", end - start);
+print("CZAS EKSPERYMENTU 3 - JEDNA WARTOŚĆ (ms):", end - start);
 printjson(results);

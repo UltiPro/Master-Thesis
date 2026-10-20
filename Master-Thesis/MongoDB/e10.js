@@ -60,7 +60,7 @@ const t1 = Date.now();
 
 // RAPORT
 print("=======================================");
-print("Eksperyment 10 — MongoDB");
+print("Eksperyment 10 - MongoDB");
 print("POI przetworzone:", processed);
 print("Czas całkowity [ms]:", t1 - t0);
 print("Czas całkowity [s]:", ((t1 - t0) / 1000).toFixed(3));

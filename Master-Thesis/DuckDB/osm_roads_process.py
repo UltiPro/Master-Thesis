@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 # ============================================
-# ŚCIEŻKI – zgodnie z ustaleniem
+# ŚCIEŻKI DO DANYCH
 # ============================================
 
 DATA_DIR = Path(r"C:\Users\Ultip\Desktop\mgr")
@@ -106,7 +106,7 @@ print(f"[osm_roads] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
 # 3.5. INDEKSY (SPATIAL + ATRYBUTOWY)
-#     — osm_roads
+#     - osm_roads
 # ============================================
 
 # --- indeks przestrzenny EPSG:4326 (LineString / MultiLineString)
@@ -147,7 +147,7 @@ t_highway = time.perf_counter() - start
 print(f"[osm_roads] Indeks B-tree highway: {t_highway:.3f} s")
 
 # ============================================
-# 4. EKSPORT DO CSV — tylko geometria 4326
+# 4. EKSPORT DO CSV - tylko geometria 4326
 # ============================================
 
 start = time.perf_counter()

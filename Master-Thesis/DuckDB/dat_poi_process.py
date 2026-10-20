@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 # ============================================
-# ŚCIEŻKI – zgodnie z ustaleniem
+# ŚCIEŻKI DO DANYCH
 # ============================================
 
 DATA_DIR = Path(r"C:\Users\Ultip\Desktop\mgr")
@@ -107,7 +107,7 @@ print(f"[dat_poi] ST_Transform 4326->2180: {results['transform_s']:.3f} s")
 
 # ============================================
 # 3.5. INDEKSY (SPATIAL + ATRYBUTOWY)
-#     — osobny pomiar czasu
+#     - osobny pomiar czasu
 # ============================================
 
 # --- indeks przestrzenny EPSG:4326
@@ -148,7 +148,7 @@ t_category = time.perf_counter() - start
 print(f"[dat_poi] Indeks B-tree category: {t_category:.3f} s")
 
 # ============================================
-# 4. EKSPORT DO CSV — tylko geometria 4326 (WKT)
+# 4. EKSPORT DO CSV - tylko geometria 4326 (WKT)
 # ============================================
 
 start = time.perf_counter()
