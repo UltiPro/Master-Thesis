@@ -21,12 +21,12 @@ Every engine went through the same pipeline, as far as it supported each step: d
 
 | Folder | Engine | Spatial model | Spatial index |
 |---|---|---|---|
-| `Postgres/` | PostgreSQL 18.1 + PostGIS 3.6 | `geometry`, EPSG:2180 (reference variant) | GiST |
-| `Postgres_4326/` | PostgreSQL 18.1 + PostGIS 3.6 | `geography`, EPSG:4326 | GiST |
-| `DuckDB/` | DuckDB 1.4.2 + Spatial | `GEOMETRY`, EPSG:2180 | R-tree |
-| `GeoPandas/` | GeoPandas 1.1.1, Shapely 2.1.2, GEOS 3.13.1 | planar, EPSG:2180 | STRtree / `sindex` |
-| `MongoDB/` | MongoDB 8.2.2 | GeoJSON, EPSG:4326 | `2dsphere` |
-| `BigQuery/` | Google BigQuery GIS | `GEOGRAPHY`, EPSG:4326 | managed by the platform |
+| `Postgres/` | PostgreSQL 18.1 + PostGIS 3.6 | Planar (`geometry`), EPSG:2180, reference variant | GiST |
+| `Postgres_4326/` | PostgreSQL 18.1 + PostGIS 3.6 | Geodetic (`geography`), EPSG:4326 | GiST |
+| `DuckDB/` | DuckDB 1.4.2 + Spatial | Planar (`GEOMETRY`), EPSG:2180 | R-tree |
+| `GeoPandas/` | GeoPandas 1.1.1, Shapely 2.1.2, GEOS 3.13.1 | Planar (Shapely geometries), EPSG:2180 | STRtree / sindex |
+| `MongoDB/` | MongoDB 8.2.2 | Geodetic (GeoJSON), EPSG:4326 | 2dsphere |
+| `BigQuery/` | Google BigQuery GIS | Geodetic (`GEOGRAPHY`), EPSG:4326 | Managed by the platform |
 
 ### 💻 Environment
 
@@ -81,7 +81,9 @@ Map data © OpenStreetMap contributors, available under the [ODbL](https://www.o
 
 PG - PostgreSQL/PostGIS (`Postgres/` and `Postgres_4326/`), DDB - DuckDB, GP - GeoPandas, MDB - MongoDB, BQ - BigQuery. A missing mark means the experiment was not performed in that engine. Some runs required input limits (E10 in DuckDB and BigQuery, E14 in MongoDB and BigQuery).
 
-📝 Note: DuckDB Spatial provides `ST_Union_Agg` and `ST_VoronoiDiagram`, so E8 and E13 could be implemented in DuckDB. They were not implemented in this research.
+📝 Note:
+
+> DuckDB Spatial provides `ST_Union_Agg` and `ST_VoronoiDiagram`, so E8 and E13 could be implemented in DuckDB. They were not implemented in this research.
 
 # 📊 Key findings
 
@@ -103,7 +105,7 @@ Each engine folder follows the same convention:
 | `e1` - `e16` | Experiments E1-E16 (in GeoPandas grouped as `e1_4.py`, `e5_8.py`, `e9_12.py`) |
 | `version.py` / `packages.py` | Library versions used in the research |
 | `MongoDB/special_export_from_pg.sql` | Export from PostgreSQL with geometry as GeoJSON, used as MongoDB input |
-| `MongoDB/import.sh`, `export.sh` | `mongoimport` / `mongoexport` commands (PowerShell syntax) |
+| `MongoDB/import.sh` / `MongoDB/export.sh` | `mongoimport` / `mongoexport` commands (PowerShell syntax) |
 | `diagram.py` | Preprocessing time chart (Fig. 5.2.2 in the thesis) |
 
 The scripts document the exact queries and processing steps behind the results in the thesis. They are not a ready-to-run pipeline.
