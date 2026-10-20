@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "If you use this software or the results of this research, please cite the thesis as below."
+type: software
+title: "Performance testing of selected computational engines for processing spatial data in 2D metric reference systems"
+abstract: "Source code of the experiments for the Master's Thesis 'Performance testing of selected computational engines for processing spatial data in 2D metric reference systems' (PostgreSQL/PostGIS, DuckDB Spatial, GeoPandas, MongoDB, Google BigQuery)."
+authors:
+  - family-names: "Wójtowicz"
+    given-names: "Patryk"
+    alias: "UltiPro"
+version: "1.0"
+date-released: "2026-10-20"
+license: MIT
+repository-code: "https://github.com/UltiPro/Master-Thesis"
+keywords:
+  - master-thesis
+  - gis
+  - spatial-data
+  - postgis
+  - duckdb
+  - geopandas
+  - mongodb
+  - bigquery
+  - benchmark
+preferred-citation:
+  type: thesis
+  thesis-type: "Master's thesis"
+  title: "Badanie wydajności wybranych silników obliczeniowych do przetwarzania danych przestrzennych w metrycznych układach odniesienia 2D"
+  authors:
+    - family-names: "Wójtowicz"
+      given-names: "Patryk"
+  institution:
+    name: "Bialystok University of Technology, Faculty of Computer Science"
+    city: "Białystok"
+    country: "PL"
+  year: 2026
+  languages:
+    - pol
+  notes: "English title: Performance testing of selected computational engines for processing spatial data in 2D metric reference systems"
+  url: "https://github.com/UltiPro/Master-Thesis"
