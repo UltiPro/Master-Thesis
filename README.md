@@ -30,7 +30,7 @@ Every engine went through the same pipeline, as far as it supported each step: d
 
 ### 💻 Environment
 
-| | |
+| Component | Specification |
 |---|---|
 | CPU | AMD Ryzen 9 7900 (12 cores / 24 threads), 3.7–5.4 GHz |
 | RAM | 32 GB DDR5 6000 MHz CL30 |
