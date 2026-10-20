@@ -7,7 +7,7 @@ This repository contains the source code of the experiments developed for my Mas
 > ***Performance testing of selected computational engines for processing spatial data in 2D metric reference systems***<br/>
 > Author: Patryk Wójtowicz · Supervisor: dr inż. Tomasz Grześ · Bialystok University of Technology, 2026
 
-The aim of the thesis was to compare the performance of selected computational engines used for spatial data processing in two-dimensional metric reference systems (EPSG:2180), and — where required by technological limitations — in the geodetic model (EPSG:4326). The study focuses on spatial operations relevant to feature engineering in machine learning tasks, such as distance calculations, spatial filtering, nearest-neighbor queries, spatial joins and aggregations.
+The aim of the thesis was to compare the performance of selected computational engines used for spatial data processing in two-dimensional metric reference systems (EPSG:2180) and, where required by technological limitations, in the geodetic model (EPSG:4326). The study focuses on spatial operations relevant to feature engineering in machine learning tasks, such as distance calculations, spatial filtering, nearest-neighbor queries, spatial joins and aggregations.
 
 Every engine went through the same pipeline, as far as it supported each step: data import from CSV (WKT), SRID assignment, geometry validation, CRS transformation (EPSG:4326 → EPSG:2180), spatial index creation, 16 experiments and data export. Execution times were measured for every stage.
 
@@ -32,7 +32,7 @@ Every engine went through the same pipeline, as far as it supported each step: d
 
 | Component | Specification |
 |---|---|
-| CPU | AMD Ryzen 9 7900 (12 cores / 24 threads), 3.7–5.4 GHz |
+| CPU | AMD Ryzen 9 7900 (12 cores / 24 threads), 3.7-5.4 GHz |
 | RAM | 32 GB DDR5 6000 MHz CL30 |
 | Disk | Lexar NQ790 1 TB, M.2 PCIe Gen4 NVMe |
 | OS | Windows 11 Pro 25H2 (no VMs or containers) |
@@ -47,7 +47,7 @@ Library versions can be printed with `DuckDB/version.py` and `GeoPandas/packages
 |---|---|--:|---|
 | `dat_poi` | Point | 903,735 | [OpenStreetMap](https://www.openstreetmap.org) |
 | `osm_roads` | LineString | 1,076,076 | [OpenStreetMap](https://www.openstreetmap.org) |
-| `geo_polska` | Polygon | 2,876 | [PRG – GUGiK Geoportal](https://www.geoportal.gov.pl/dane/panstwowy-rejestr-granic) |
+| `geo_polska` | Polygon | 2,876 | [PRG - GUGiK Geoportal](https://www.geoportal.gov.pl/dane/panstwowy-rejestr-granic) |
 | `geo_hex` | Polygon | 30,943,061 | synthetic (generated hexagonal grid) |
 
 `dat_poi` and `osm_roads` were taken directly from OpenStreetMap without additional filtering, and `geo_polska` from the State Register of Borders (PRG). `geo_hex` is a synthetic regular hexagonal grid covering Poland, generated for the performance tests, with cells 125 m wide (side 62.5 m, area ≈ 0.01 km²). The way it was generated does not affect the results, so any regular hexagonal grid of a similar resolution covering Poland can be used instead.
@@ -61,7 +61,7 @@ Map data © OpenStreetMap contributors, available under the [ODbL](https://www.o
 | | **Distance and nearest neighbor** | | | | | |
 | E1 | Nearest POI to a reference point | ✅ | ✅ | ✅ | ✅ | ✅ |
 | E2 | Nearest POI of each category to a reference point | ✅ | ✅ | ✅ | ✅ | ✅ |
-| E3 | POI count per category within radii 50 m – 100 km | ✅ | ✅ | ✅ | ✅ | ✅ |
+| E3 | POI count per category within radii 50 m - 100 km | ✅ | ✅ | ✅ | ✅ | ✅ |
 | E4 | Distance from POI to commune / county / voivodeship / country boundary | ✅ | ✅ | ✅ | | ✅ |
 | | **Geometric and topological** | | | | | |
 | E5 | Area, perimeter and centroid of all administrative units | ✅ | ✅ | ✅ | | ✅ |
@@ -79,7 +79,7 @@ Map data © OpenStreetMap contributors, available under the [ODbL](https://www.o
 | E15 | Total road length per hexagon | ✅ | ✅ | ✅ | | ✅ |
 | E16 | Hexagon → voivodeship join with cell and intersection area | ✅ | ✅ | ✅ | | ✅ |
 
-PG – PostgreSQL/PostGIS (`Postgres/` and `Postgres_4326/`), DDB – DuckDB, GP – GeoPandas, MDB – MongoDB, BQ – BigQuery. A missing mark means the experiment was not performed in that engine. Some runs required input limits (E10 in DuckDB and BigQuery, E14 in MongoDB and BigQuery).
+PG - PostgreSQL/PostGIS (`Postgres/` and `Postgres_4326/`), DDB - DuckDB, GP - GeoPandas, MDB - MongoDB, BQ - BigQuery. A missing mark means the experiment was not performed in that engine. Some runs required input limits (E10 in DuckDB and BigQuery, E14 in MongoDB and BigQuery).
 
 📝 Note: DuckDB Spatial provides `ST_Union_Agg` and `ST_VoronoiDiagram`, so E8 and E13 could be implemented in DuckDB. They were not implemented in this research.
 
@@ -91,7 +91,7 @@ PG – PostgreSQL/PostGIS (`Postgres/` and `Postgres_4326/`), DDB – DuckDB, GP
 - **GeoPandas** was best for exploration and prototyping features, and it was the fastest in some polygon operations (E6, E16), but everything has to fit in memory.
 - **BigQuery GIS** often had low elapsed time, but a high slot time consumed. It suits one-off or periodic processing of very large datasets.
 - **MongoDB** supports only a small set of spatial operations (6 of 16 experiments), which limits its usefulness for spatial feature engineering.
-- The hexagonal grid experiments (E13–E16) were the most demanding: some engines could not finish them within available resources or needed input limits.
+- The hexagonal grid experiments (E13-E16) were the most demanding: some engines could not finish them within available resources or needed input limits.
 
 # 📁 Repository structure
 
@@ -100,7 +100,7 @@ Each engine folder follows the same convention:
 | File | Purpose |
 |---|---|
 | `basic.sql` / `*_process.py` / `*_preprocess.py` | Preprocessing: data import, SRID assignment, geometry validation, CRS transformation, spatial indexes, export |
-| `e1` … `e16` | Experiments E1–E16 (in GeoPandas grouped as `e1_4.py`, `e5_8.py`, `e9_12.py`) |
+| `e1` - `e16` | Experiments E1-E16 (in GeoPandas grouped as `e1_4.py`, `e5_8.py`, `e9_12.py`) |
 | `version.py` / `packages.py` | Library versions used in the research |
 | `MongoDB/special_export_from_pg.sql` | Export from PostgreSQL with geometry as GeoJSON, used as MongoDB input |
 | `MongoDB/import.sh`, `export.sh` | `mongoimport` / `mongoexport` commands (PowerShell syntax) |
